@@ -6,10 +6,10 @@
     "Parameters" : {
 
         "Environment" : {
-            "Description" : "Name of the environment you're provisioning ('Dev', 'Test', or 'Prod'",
+            "Description" : "Name of the environment you're provisioning ('dev', 'qa', or 'prod'",
             "Type" : "String",
             "Default" : "development",
-            "AllowedValues" : [ "development", "staging", "production" ]
+            "AllowedValues" : [ "dev", "qa", "prod" ]
         },
         "CodeFolder" : {
             "Description" : "Path in S3 code bucket for bootstrap code",
