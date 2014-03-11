@@ -17,64 +17,20 @@
             "Default" : "harvard-edu",
             "AllowedValues" : [ "harvard-edu", "news-harvard-edu-gazette", "campaign-harvard-edu" ]
         },
-        "33DigitBillingCode" : {
-            "Description" : "Chart of Accounts, 33 digit billing code with dashes (xxx-xxxxx-xxxx-xxxxxx-xxxxxx-xxxx-xxxxx)",
-            "Default" : "999-99999-9999-999999-999999-9999-99999",
-            "Type" : "String",
-            "MinLength" : "39",
-            "MaxLength" : "39",
-            "AllowedPattern" : "[0-9]{3}-[0-9]{5}-[0-9]{4}-[0-9]{6}-[0-9]{6}-[0-9]{4}-[0-9]{5}"
-        },
-
+        
         "KeyName" : {
             "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instances",
-            "Type" : "String"
+            "Type" : "String",
+            "Default" : "hbpmaster"
         },
 
         "InstanceType" : {
             "Description" : "WebServer EC2 instance type",
             "Type" : "String",
-            "Default" : "m1.small",
+            "Default" : "c3.xlarge",
             "ConstraintDescription" : "must be a valid EC2 instance type."
         },
-        "CacheNodeType" : {
-          "Default" : "cache.m1.small",
-          "Description" : "The compute and memory capacity of the nodes in the Cache Cluster",
-          "Type" : "String",
-          "ConstraintDescription" : "must select a valid Cache Node type."
-        },
-        "NumberOfCacheNodes" : {
-          "Default": "1",
-          "Description" : "The number of Cache Nodes the Cache Cluster should have",
-          "Type": "Number",
-          "MinValue": "1",
-          "MaxValue": "10",
-          "ConstraintDescription" : "must be between 5 and 10."
-        },
-        "DBBackup": {
-            "Default": "0",
-            "Description": "Retention period of automatic snapshots of database. Only use in Prod",
-            "Type": "Number",
-            "MinValue": "0",
-            "MaxValue": "35"
-        },
-        "DBPatching": {
-            "Default": "true",
-            "Description": "Automatic patching of dbEngine for minor updates",
-            "Type": "String",
-            "AllowedValues" : [ "true", "false" ]
-        },
-
-        "DBName": {
-            "Default": "drupaldb",
-            "Description" : "The Drupal database name",
-            "Type": "String",
-            "MinLength": "1",
-            "MaxLength": "64",
-            "AllowedPattern" : "[a-zA-Z][a-zA-Z0-9]*",
-            "ConstraintDescription" : "must begin with a letter and contain only alphanumeric characters."
-        },
-
+        
         "DBUsername": {
             "Default": "admin",
             "Description" : "The Drupal database admin account username",
@@ -96,77 +52,30 @@
             "ConstraintDescription" : "must contain only alphanumeric characters."
         },
 
-        "DBPrefix": {
-            "Default": "hvdu_",
-            "Description" : "The Drupal database table name prefix",
-            "Type": "String"
-        },
-
-        "DBClass" : {
-            "Default" : "db.m1.small",
-            "Description" : "Database instance class",
-            "Type" : "String",
-            "AllowedValues" : [ "db.m1.small", "db.m1.large", "db.m1.xlarge", "db.m2.xlarge", "db.m2.2xlarge", "db.m2.4xlarge" ],
-            "ConstraintDescription" : "must select a valid database instance type."
-        },
-
-        "DBAllocatedStorage" : {
-            "Default": "5",
-            "Description" : "The size of the database (Gb)",
-            "Type": "Number",
-            "MinValue": "5",
-            "MaxValue": "1024",
-            "ConstraintDescription" : "must be between 5 and 1024Gb."
-        },
-
-        "MultiAZDatabase": {
-            "Default": "true",
-            "Description" : "Create a multi-AZ MySQL Amazon RDS database instance",
-            "Type": "String",
-            "AllowedValues" : [ "true", "false" ],
-            "ConstraintDescription" : "must be either true or false."
-        },
-
         "WebServerCapacity": {
             "Default": "2",
-            "Description" : "The initial number of WebServer instances. 1 for dev and test(default), *set to 2 for production*",
+            "Description" : "The initial number of WebServer instances. 2 for dev and test(default), *set to 3 for production*",
             "Type": "Number",
             "MinValue": "2",
-            "MaxValue": "6",
-            "ConstraintDescription" : "must be between 1 and 6 EC2 instances."
+            "MaxValue": "3",
+            "ConstraintDescription" : "must be between 1 and 3 EC2 instances."
         },
         "NATInstanceIP" : {
             "Description" : "Internal IP of NAT Instance",
             "Type" : "String",
             "MinLength" : "7",
             "MaxLength" : "15",
-            "Default" : "10.0.32.9",
+            "Default" : "172.116.110.110",
             "AllowedPattern" : "\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\b",
             "ConstraintDescription" : "must be a valid IP"
         },
-        "WebAdminElasticIP" : {
-            "Description" : "Web Admin Box Elastic IP Allocation ID",
-            "Type" : "String",
-            "MinLength" : "7",
-            "MaxLength" : "20",
-            "Default" : "eipalloc-1fa6ba7d",
-            "ConstraintDescription" : "must begin with a letter and contain only alphanumeric characters."
-        },
-        "WebAdminIP" : {
-            "Description" : "Elastic IP of Web Admin Instance",
-            "Type" : "String",
-            "MinLength" : "7",
-            "MaxLength" : "15",
-            "Default" : "54.236.202.108",
-            "AllowedPattern" : "\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\b",
-            "ConstraintDescription" : "must be a valid IP"
-        },
+        
         "TestDomain" : {
-            "Description" : "Test Domain Name",
+            "Description" : "Domain Name",
             "Type" : "String",
             "MinLength" : "7",
             "MaxLength" : "40",
-            "Default" : "hpac-hedu-harvard-edu.noip.us",
+            "Default" : "hbsp.harvard.edu",
             "ConstraintDescription" : "must be a valid domain name."
         },
         "SSHLocation" : {
@@ -174,7 +83,7 @@
             "Type": "String",
             "MinLength": "9",
             "MaxLength": "18",
-            "Default": "0.0.0.0/0",
+            "Default": "10.103.0.0/15",
             "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
             "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
         }
@@ -182,18 +91,11 @@
 
     "Mappings" : {
         "AWSInstanceType2Arch" : {
-            "t1.micro"    : { "Arch" : "64" },
-            "m1.small"    : { "Arch" : "64" },
-            "m1.medium"   : { "Arch" : "64" },
-            "m1.large"    : { "Arch" : "64" },
-            "m1.xlarge"   : { "Arch" : "64" },
-            "m2.xlarge"   : { "Arch" : "64" },
-            "c1.medium"   : { "Arch" : "64" },
-            "c1.xlarge"   : { "Arch" : "64" }
+            "c3.xlarge"   : { "Arch" : "64" }
         },
 
         "AWSRegionArch2AMI" : {
-            "us-east-1"      : { "64" : "ami-35792c5c", "64HVM" : "ami-69792c00" }
+            "us-east-1"      : { "64" : "ami-bba18dd2", "64HVM" : "ami-e9a18d80" }
         }
     },
 
