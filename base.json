@@ -1,0 +1,921 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+
+    "Description" : "Harvard.edu CloudFormation Template",
+
+    "Parameters" : {
+
+        "Environment" : {
+            "Description" : "Name of the environment you're provisioning ('Dev', 'Test', or 'Prod'",
+            "Type" : "String",
+            "Default" : "development",
+            "AllowedValues" : [ "development", "staging", "production" ]
+        },
+        "CodeFolder" : {
+            "Description" : "Path in S3 code bucket for bootstrap code",
+            "Type" : "String",
+            "Default" : "harvard-edu",
+            "AllowedValues" : [ "harvard-edu", "news-harvard-edu-gazette", "campaign-harvard-edu" ]
+        },
+        "33DigitBillingCode" : {
+            "Description" : "Chart of Accounts, 33 digit billing code with dashes (xxx-xxxxx-xxxx-xxxxxx-xxxxxx-xxxx-xxxxx)",
+            "Default" : "999-99999-9999-999999-999999-9999-99999",
+            "Type" : "String",
+            "MinLength" : "39",
+            "MaxLength" : "39",
+            "AllowedPattern" : "[0-9]{3}-[0-9]{5}-[0-9]{4}-[0-9]{6}-[0-9]{6}-[0-9]{4}-[0-9]{5}"
+        },
+
+        "KeyName" : {
+            "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instances",
+            "Type" : "String"
+        },
+
+        "InstanceType" : {
+            "Description" : "WebServer EC2 instance type",
+            "Type" : "String",
+            "Default" : "m1.small",
+            "ConstraintDescription" : "must be a valid EC2 instance type."
+        },
+        "CacheNodeType" : {
+          "Default" : "cache.m1.small",
+          "Description" : "The compute and memory capacity of the nodes in the Cache Cluster",
+          "Type" : "String",
+          "ConstraintDescription" : "must select a valid Cache Node type."
+        },
+        "NumberOfCacheNodes" : {
+          "Default": "1",
+          "Description" : "The number of Cache Nodes the Cache Cluster should have",
+          "Type": "Number",
+          "MinValue": "1",
+          "MaxValue": "10",
+          "ConstraintDescription" : "must be between 5 and 10."
+        },
+        "DBBackup": {
+            "Default": "0",
+            "Description": "Retention period of automatic snapshots of database. Only use in Prod",
+            "Type": "Number",
+            "MinValue": "0",
+            "MaxValue": "35"
+        },
+        "DBPatching": {
+            "Default": "true",
+            "Description": "Automatic patching of dbEngine for minor updates",
+            "Type": "String",
+            "AllowedValues" : [ "true", "false" ]
+        },
+
+        "DBName": {
+            "Default": "drupaldb",
+            "Description" : "The Drupal database name",
+            "Type": "String",
+            "MinLength": "1",
+            "MaxLength": "64",
+            "AllowedPattern" : "[a-zA-Z][a-zA-Z0-9]*",
+            "ConstraintDescription" : "must begin with a letter and contain only alphanumeric characters."
+        },
+
+        "DBUsername": {
+            "Default": "admin",
+            "Description" : "The Drupal database admin account username",
+            "Type": "String",
+            "MinLength": "1",
+            "MaxLength": "16",
+            "AllowedPattern" : "[a-zA-Z][a-zA-Z0-9]*",
+            "ConstraintDescription" : "must begin with a letter and contain only alphanumeric characters."
+        },
+
+        "DBPassword": {
+            "Default": "adminPASS",
+            "NoEcho": "true",
+            "Description" : "The Drupal database admin account password",
+            "Type": "String",
+            "MinLength": "1",
+            "MaxLength": "41",
+            "AllowedPattern" : "[a-zA-Z0-9]*",
+            "ConstraintDescription" : "must contain only alphanumeric characters."
+        },
+
+        "DBPrefix": {
+            "Default": "hvdu_",
+            "Description" : "The Drupal database table name prefix",
+            "Type": "String"
+        },
+
+        "DBClass" : {
+            "Default" : "db.m1.small",
+            "Description" : "Database instance class",
+            "Type" : "String",
+            "AllowedValues" : [ "db.m1.small", "db.m1.large", "db.m1.xlarge", "db.m2.xlarge", "db.m2.2xlarge", "db.m2.4xlarge" ],
+            "ConstraintDescription" : "must select a valid database instance type."
+        },
+
+        "DBAllocatedStorage" : {
+            "Default": "5",
+            "Description" : "The size of the database (Gb)",
+            "Type": "Number",
+            "MinValue": "5",
+            "MaxValue": "1024",
+            "ConstraintDescription" : "must be between 5 and 1024Gb."
+        },
+
+        "MultiAZDatabase": {
+            "Default": "true",
+            "Description" : "Create a multi-AZ MySQL Amazon RDS database instance",
+            "Type": "String",
+            "AllowedValues" : [ "true", "false" ],
+            "ConstraintDescription" : "must be either true or false."
+        },
+
+        "WebServerCapacity": {
+            "Default": "2",
+            "Description" : "The initial number of WebServer instances. 1 for dev and test(default), *set to 2 for production*",
+            "Type": "Number",
+            "MinValue": "2",
+            "MaxValue": "6",
+            "ConstraintDescription" : "must be between 1 and 6 EC2 instances."
+        },
+        "NATInstanceIP" : {
+            "Description" : "Internal IP of NAT Instance",
+            "Type" : "String",
+            "MinLength" : "7",
+            "MaxLength" : "15",
+            "Default" : "10.0.32.9",
+            "AllowedPattern" : "\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\b",
+            "ConstraintDescription" : "must be a valid IP"
+        },
+        "WebAdminElasticIP" : {
+            "Description" : "Web Admin Box Elastic IP Allocation ID",
+            "Type" : "String",
+            "MinLength" : "7",
+            "MaxLength" : "20",
+            "Default" : "eipalloc-1fa6ba7d",
+            "ConstraintDescription" : "must begin with a letter and contain only alphanumeric characters."
+        },
+        "WebAdminIP" : {
+            "Description" : "Elastic IP of Web Admin Instance",
+            "Type" : "String",
+            "MinLength" : "7",
+            "MaxLength" : "15",
+            "Default" : "54.236.202.108",
+            "AllowedPattern" : "\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\b",
+            "ConstraintDescription" : "must be a valid IP"
+        },
+        "TestDomain" : {
+            "Description" : "Test Domain Name",
+            "Type" : "String",
+            "MinLength" : "7",
+            "MaxLength" : "40",
+            "Default" : "hpac-hedu-harvard-edu.noip.us",
+            "ConstraintDescription" : "must be a valid domain name."
+        },
+        "SSHLocation" : {
+            "Description" : "The IP address range that can be used to SSH to the EC2 instances",
+            "Type": "String",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "Default": "0.0.0.0/0",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+        }
+    },
+
+    "Mappings" : {
+        "AWSInstanceType2Arch" : {
+            "t1.micro"    : { "Arch" : "64" },
+            "m1.small"    : { "Arch" : "64" },
+            "m1.medium"   : { "Arch" : "64" },
+            "m1.large"    : { "Arch" : "64" },
+            "m1.xlarge"   : { "Arch" : "64" },
+            "m2.xlarge"   : { "Arch" : "64" },
+            "c1.medium"   : { "Arch" : "64" },
+            "c1.xlarge"   : { "Arch" : "64" }
+        },
+
+        "AWSRegionArch2AMI" : {
+            "us-east-1"      : { "64" : "ami-35792c5c", "64HVM" : "ami-69792c00" }
+        }
+    },
+
+    "Resources" : {
+
+        "Distribution": {
+            "Type" : "AWS::CloudFront::Distribution",
+            "Properties" : {
+                "DistributionConfig" : {
+                    "Aliases" : [ { "Ref" : "TestDomain" } ],
+                    "Origins" : [
+                        {
+                            "DomainName": { "Fn::GetAtt" : ["ElasticLoadBalancer", "DNSName"] },
+                            "Id": "ELBOrigin",
+                            "CustomOriginConfig": {
+                                "HTTPPort": "80",
+                                "HTTPSPort": "443",
+                                "OriginProtocolPolicy": "http-only"
+                            }
+                        },
+                        {
+                            "DomainName" : { "Fn::GetAtt" : ["S3BucketBlank", "DomainName"] },
+                            "Id" : "S3BucketBlankOrigin",
+                            "S3OriginConfig" : {
+                            }
+                        }
+                    ],
+                    "Enabled" : "true",
+                    "DefaultRootObject" : "index.php",
+                    "Logging" : {
+                        "Bucket" : "mylogs.s3.amazonaws.com",
+                        "Prefix" : "myprefix"
+                    },
+                    "DefaultCacheBehavior" : {
+                        "TargetOriginId" : "ELBOrigin",
+                        "ForwardedValues" : {
+                            "QueryString" : "false"
+                        },
+                        "ViewerProtocolPolicy" : "allow-all"
+                    },
+                    "CacheBehaviors" : [ {
+                        "TargetOriginId" : "ELBOrigin",
+                        "ForwardedValues" : {
+                            "QueryString" : "true"
+                        },
+                        "ViewerProtocolPolicy" : "allow-all",
+                        "MinTTL" : "50",
+                        "PathPattern" : "/feedback"
+                    },
+                        {
+                            "TargetOriginId" : "ELBOrigin",
+                            "ForwardedValues" : {
+                                "QueryString" : "true"
+                            },
+                            "ViewerProtocolPolicy" : "allow-all",
+                            "MinTTL" : "50",
+                            "PathPattern" : "/searches"
+                        },
+                        {
+                            "TargetOriginId" : "ELBOrigin",
+                            "ForwardedValues" : {
+                                "QueryString" : "true"
+                            },
+                            "ViewerProtocolPolicy" : "allow-all",
+                            "MinTTL" : "50",
+                            "PathPattern" : "/searches/*"
+                        },
+                        {
+                            "TargetOriginId" : "ELBOrigin",
+                            "ForwardedValues" : {
+                                "QueryString" : "true"
+                            },
+                            "ViewerProtocolPolicy" : "allow-all",
+                            "MinTTL" : "50",
+                            "PathPattern" : "/social-media"
+                        },
+                        {
+                            "TargetOriginId" : "ELBOrigin",
+                            "ForwardedValues" : {
+                                "QueryString" : "true"
+                            },
+                            "ViewerProtocolPolicy" : "allow-all",
+                            "MinTTL" : "50",
+                            "PathPattern" : "/harvard-social-media"
+                        },
+                        {
+                            "TargetOriginId" : "ELBOrigin",
+                            "ForwardedValues" : {
+                                "QueryString" : "true"
+                            },
+                            "ViewerProtocolPolicy" : "allow-all",
+                            "MinTTL" : "50",
+                            "PathPattern" : "/ajax*"
+                        },
+                        {
+                            "TargetOriginId" : "ELBOrigin",
+                            "ForwardedValues" : {
+                                "QueryString" : "true"
+                            },
+                            "ViewerProtocolPolicy" : "allow-all",
+                            "MinTTL" : "50",
+                            "PathPattern" : "*functions.js"
+                        },
+                        {
+                            "TargetOriginId" : "S3BucketBlankOrigin",
+                            "ForwardedValues" : {
+                                "QueryString" : "false"
+                            },
+                            "ViewerProtocolPolicy" : "allow-all",
+                            "MinTTL" : "50",
+                            "PathPattern" : "/user"
+                        },
+                        {
+                            "TargetOriginId" : "S3BucketBlankOrigin",
+                            "ForwardedValues" : {
+                                "QueryString" : "false"
+                            },
+                            "ViewerProtocolPolicy" : "allow-all",
+                            "MinTTL" : "50",
+                            "PathPattern" : "/user/*"
+                        },
+                        {
+                            "TargetOriginId" : "S3BucketBlankOrigin",
+                            "ForwardedValues" : {
+                                "QueryString" : "false"
+                            },
+                            "ViewerProtocolPolicy" : "allow-all",
+                            "MinTTL" : "50",
+                            "PathPattern" : "/admin"
+                        },
+                        {
+                            "TargetOriginId" : "S3BucketBlankOrigin",
+                            "ForwardedValues" : {
+                                "QueryString" : "false"
+                            },
+                            "ViewerProtocolPolicy" : "allow-all",
+                            "MinTTL" : "50",
+                            "PathPattern" : "/admin/*"
+                        },
+                        {
+                            "TargetOriginId" : "S3BucketBlankOrigin",
+                            "ForwardedValues" : {
+                                "QueryString" : "false"
+                            },
+                            "ViewerProtocolPolicy" : "allow-all",
+                            "MinTTL" : "50",
+                            "PathPattern" : "/editor"
+                        },
+                        {
+                            "TargetOriginId" : "S3BucketBlankOrigin",
+                            "ForwardedValues" : {
+                                "QueryString" : "false"
+                            },
+                            "ViewerProtocolPolicy" : "allow-all",
+                            "MinTTL" : "50",
+                            "PathPattern" : "/editor/*"
+                        },
+                        {
+                            "TargetOriginId" : "ELBOrigin",
+                            "ForwardedValues" : {
+                                "QueryString" : "false"
+                            },
+                            "ViewerProtocolPolicy" : "allow-all",
+                            "MinTTL" : "50",
+                            "PathPattern" : "*"
+                        }
+                    ]
+                }
+            }
+        },
+
+        "S3Bucket" : {
+            "Type" : "AWS::S3::Bucket",
+            "DeletionPolicy" : "Retain"
+        },
+
+        "BucketPolicy" : {
+            "Type" : "AWS::S3::BucketPolicy",
+            "Properties" : {
+                "PolicyDocument": {
+                    "Version" : "2008-10-17",
+                    "Id" : "UploadPolicy",
+                    "Statement" : [{
+                        "Sid" : "EnableReadWrite",
+                        "Action" : ["s3:GetObject", "s3:PutObject", "s3:PutObjectACL" ],
+                        "Effect" : "Allow",
+                        "Resource" : { "Fn::Join" : ["", ["arn:aws:s3:::", {"Ref" : "S3Bucket"} , "/*"]]},
+                        "Principal" : { "AWS": {"Fn::GetAtt" : ["InstanceRole", "Arn"]} }
+                    }]
+                },
+                "Bucket" : {"Ref" : "S3Bucket"}
+            }
+        },
+
+        "InstanceRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [
+                                    "ec2.amazonaws.com"
+                                ]
+                            },
+                            "Action": [
+                                "sts:AssumeRole"
+                            ]
+                        }
+                    ]
+                },
+                "Path": "/",
+                "Policies": [
+                    {
+                        "PolicyName": "EIPreassociate",
+                        "PolicyDocument": {
+                            "Statement": [
+                                {
+                                    "Action": [
+                                        "ec2:AssociateAddress",
+                                        "ec2:DescribeAddresses",
+                                        "ec2:DisassociateAddress"
+                                    ],
+                                    "Effect": "Allow",
+                                    "Resource": [
+                                        "*"
+                                    ]
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "PolicyName": "S3access",
+                        "PolicyDocument": {
+                            "Statement": [
+                                {
+                                    "Action": [
+                                        "s3:Get*",
+                                        "s3:List*",
+                                        "s3:Put*"
+                                    ],
+                                    "Effect": "Allow",
+                                    "Resource": [
+                                        {
+                                            "Fn::Join": [
+                                                "",
+                                                [
+                                                    "arn:aws:s3:::",
+                                                    {
+                                                        "Ref": "S3Bucket"
+                                                    }
+                                                ]
+                                            ]
+                                        },
+                                        {
+                                            "Fn::Join": [
+                                                "",
+                                                [
+                                                    "arn:aws:s3:::",
+                                                    {
+                                                        "Ref": "S3Bucket"
+                                                    },
+                                                    "/*"
+                                                ]
+                                            ]
+                                        },
+                                        {
+                                            "Fn::Join": [
+                                                "",
+                                                [
+                                                    "arn:aws:s3:::hwp-devops/",
+                                                    {
+                                                        "Ref": "CodeFolder"
+                                                    },
+                                                    "/",
+                                                    {
+                                                        "Ref": "Environment"
+                                                    }
+                                                ]
+                                            ]
+                                        },
+                                        {
+                                            "Fn::Join": [
+                                                "",
+                                                [
+                                                    "arn:aws:s3:::hwp-devops/",
+                                                    {
+                                                        "Ref": "CodeFolder"
+                                                    },
+                                                    "/",
+                                                    {
+                                                        "Ref": "Environment"
+                                                    },
+                                                    "/*"
+                                                ]
+                                            ]
+                                        }
+                                    ]
+                                }
+
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "InstanceProfile": {
+            "Type": "AWS::IAM::InstanceProfile",
+            "Properties": {
+                "Path": "/",
+                "Roles": [
+                    {
+                        "Ref": "InstanceRole"
+                    }
+                ]
+            }
+        },
+
+
+
+
+
+        "S3BucketBlank" : {
+            "Type" : "AWS::S3::Bucket",
+            "Properties" : {
+                "AccessControl" : "PublicRead",
+                "WebsiteConfiguration" : {
+                    "IndexDocument" : "index.html",
+                    "ErrorDocument" : "error.html"
+                }
+            },
+            "DeletionPolicy" : "Retain"
+        },
+
+        "ElasticLoadBalancer" : {
+            "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+            "Metadata" : {
+                "Comment" : "Configure the Load Balancer with a simple health check and cookie-based stickiness"
+            },
+            "Properties" : {
+                "Subnets" : [ "subnet-c64176b2", "subnet-32c0b11a", "subnet-28ffa96e" ],
+                "SecurityGroups" : [{ "Ref" : "ELBSecurityGroup" }],
+                "LBCookieStickinessPolicy" : [ {
+                    "PolicyName" : "CookieBasedPolicy",
+                    "CookieExpirationPeriod" : "30"
+                } ],
+                "Listeners" : [ {
+                    "LoadBalancerPort" : "80",
+                    "InstancePort" : "80",
+                    "Protocol" : "HTTP",
+                    "PolicyNames" : [ "CookieBasedPolicy" ]
+                } ],
+                "HealthCheck" : {
+                    "Target" : "HTTP:80/",
+                    "HealthyThreshold" : "2",
+                    "UnhealthyThreshold" : "6",
+                    "Interval" : "10",
+                    "Timeout" : "5"
+                }
+            }
+        },
+
+        "WebServerGroup" : {
+            "Type" : "AWS::AutoScaling::AutoScalingGroup",
+            "Properties" : {
+                "AvailabilityZones" : [ "us-east-1b", "us-east-1d", "us-east-1e" ],
+                "VPCZoneIdentifier" : [ "subnet-c64176b2", "subnet-32c0b11a", "subnet-28ffa96e" ],
+                "LaunchConfigurationName" : { "Ref" : "LaunchConfig" },
+                "MinSize" : "2",
+                "MaxSize" : "8",
+                "DesiredCapacity" : { "Ref" : "WebServerCapacity" },
+                "LoadBalancerNames" : [ { "Ref" : "ElasticLoadBalancer" } ],
+                "Tags" : [ {"Key" : "Environment", "Value" : { "Ref" : "Environment" }, "PropagateAtLaunch" : "true"},
+                    {"Key" : "Name", "Value" : { "Fn::Join" : ["", [{ "Ref" : "AWS::StackName" }, " Web Server"]] }, "PropagateAtLaunch" : "true" },
+                    {"Key" : "DBName", "Value" : { "Ref" : "DBName" }, "PropagateAtLaunch" : "true"},
+                    {"Key" : "33DigitBillingCode", "Value" : { "Ref" : "33DigitBillingCode" }, "PropagateAtLaunch" : "true"}]
+            }
+        },
+        "WebServerScaleUpPolicy" : {
+            "Type" : "AWS::AutoScaling::ScalingPolicy",
+            "Properties" : {
+                "AdjustmentType" : "ChangeInCapacity",
+                "AutoScalingGroupName" : { "Ref" : "WebServerGroup" },
+                "Cooldown" : "180",
+                "ScalingAdjustment" : "2"
+            }
+        },
+        "WebServerScaleDownPolicy" : {
+            "Type" : "AWS::AutoScaling::ScalingPolicy",
+            "Properties" : {
+                "AdjustmentType" : "ChangeInCapacity",
+                "AutoScalingGroupName" : { "Ref" : "WebServerGroup" },
+                "Cooldown" : "600",
+                "ScalingAdjustment" : "-1"
+            }
+        },
+
+        "CPUAlarmHigh": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Properties": {
+                "AlarmDescription": "Scale-up if CPU > 80% for 10 minutes",
+                "MetricName": "CPUUtilization",
+                "Namespace": "AWS/EC2",
+                "Statistic": "Average",
+                "Period": "300",
+                "EvaluationPeriods": "2",
+                "Threshold": "80",
+                "AlarmActions": [ { "Ref": "WebServerScaleUpPolicy" } ],
+                "Dimensions": [
+                    {
+                        "Name": "AutoScalingGroupName",
+                        "Value": { "Ref": "WebServerGroup" }
+                    }
+                ],
+                "ComparisonOperator": "GreaterThanThreshold"
+            }
+        },
+        "CPUAlarmLow": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Properties": {
+                "AlarmDescription": "Scale-down if CPU < 30% for 10 minutes",
+                "MetricName": "CPUUtilization",
+                "Namespace": "AWS/EC2",
+                "Statistic": "Average",
+                "Period": "300",
+                "EvaluationPeriods": "2",
+                "Threshold": "30",
+                "AlarmActions": [ { "Ref": "WebServerScaleDownPolicy" } ],
+                "Dimensions": [
+                    {
+                        "Name": "AutoScalingGroupName",
+                        "Value": { "Ref": "WebServerGroup" }
+                    }
+                ],
+                "ComparisonOperator": "LessThanThreshold"
+            }
+        },
+        "LaunchConfig": {
+            "Type" : "AWS::AutoScaling::LaunchConfiguration",
+            "Properties": {
+                "AssociatePublicIpAddress" : "true",
+                "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
+                    { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
+                "InstanceType"   : { "Ref" : "InstanceType" },
+                "IamInstanceProfile" : { "Ref" : "InstanceProfile" },
+                "SecurityGroups" : [ {"Ref" : "WebServerSecurityGroup" } ],
+                "KeyName"        : { "Ref" : "KeyName" },
+                "UserData" : { "Fn::Base64" : { "Fn::Join" : [ "", [
+                    "#!/bin/bash -v\n",
+
+                    "# Helper function\n",
+                    "function error_exit\n",
+                    "{\n",
+                    "  /opt/aws/bin/cfn-signal -e 1 -r \"$1\" '", { "Ref" : "WaitHandle" }, "'\n",
+                    "  exit 1\n",
+                    "}\n",
+
+                    "# Make environment variables for helper user data scripts\n",
+                    "export TestDomain=", { "Ref" : "TestDomain" }, "\n",
+                    "export S3Bucket=", { "Ref" : "S3Bucket" }, "\n",
+                    "export CacheEndpointAddress=", { "Fn::GetAtt" : [ "CacheCluster", "ConfigurationEndpoint.Address" ]}, "\n",
+                    "export CacheEndpointPort=", { "Fn::GetAtt" : [ "CacheCluster", "ConfigurationEndpoint.Port" ]}, "\n",
+                    "export DBName=", { "Ref" : "DBName" }, "\n",
+                    "export DBUsername=", { "Ref" : "DBUsername" }, "\n",
+                    "export DBPassword=", { "Ref" : "DBPassword" }, "\n",
+                    "export DBAddress=", {"Fn::GetAtt" : ["DBInstance", "Endpoint.Address"]}, "\n",
+                    "export DBPort=", {"Fn::GetAtt" : ["DBInstance", "Endpoint.Port"]}, "\n",
+                    "export DBPrefix=", { "Ref" : "DBPrefix" }, "\n",
+                    "export CodePath=", { "Fn::Join": [
+                        "",
+                        [
+                            "hwp-devops/",
+                            {
+                                "Ref": "CodeFolder"
+                            },
+                            "/",
+                            {
+                                "Ref": "Environment"
+                            }
+                        ]
+                    ]
+                    }, "\n",
+                    "mkdir -p /opt/aws/bootstrap\n",
+                    "aws s3 cp s3://$CodePath/devops/cloudformation-helper-scripts/runbook.sh /opt/aws/bootstrap/runbook.sh --region us-east-1\n",
+                    "# The following line is so that crontab is created on all webservers here, so that subsequent additions to crontab in helper.sh work properly\n",
+                    "(crontab -l ; echo \"#\") | crontab -\n",
+                    "chmod 700 /opt/aws/bootstrap/runbook.sh\n",
+                    "/opt/aws/bootstrap/runbook.sh\n"
+
+                ]]}}
+            }
+        },
+
+        "WaitHandle" : {
+            "Type" : "AWS::CloudFormation::WaitConditionHandle"
+        },
+
+        "WaitCondition" : {
+            "Type" : "AWS::CloudFormation::WaitCondition",
+            "DependsOn" : "WebServerGroup",
+            "Properties" : {
+                "Count" : "0",
+                "Handle" : {"Ref" : "WaitHandle"},
+                "Timeout" : "600"
+            }
+        },
+
+        "CacheCluster" : {
+          "Type": "AWS::ElastiCache::CacheCluster",
+          "Properties": {
+            "CacheSubnetGroupName" : { "Ref" : "CacheSubnetGroup" },
+            "CacheNodeType"        : { "Ref" : "CacheNodeType" },
+            "VpcSecurityGroupIds"  : [ { "Ref" : "CacheSecurityGroup" } ],
+            "Engine"               : "memcached",
+            "NumCacheNodes"        : { "Ref" : "NumberOfCacheNodes" }
+          }
+        },
+
+        "DBInstance" : {
+            "Type": "AWS::RDS::DBInstance",
+            "Properties": {
+                "AutoMinorVersionUpgrade" : { "Ref" : "DBPatching" },
+                "BackupRetentionPeriod" : { "Ref" : "DBBackup" },
+                "DBSubnetGroupName": { "Ref" : "DBSubnetGrp" },
+                "PreferredBackupWindow" : "07:00-09:00",
+                "PreferredMaintenanceWindow" : "Mon:09:30-Mon:12:00",
+                "DBName"            : { "Ref" : "DBName" },
+                "Engine"            : "MySQL",
+                "MultiAZ"           : { "Ref": "MultiAZDatabase" },
+                "MasterUsername"    : { "Ref" : "DBUsername" },
+                "DBInstanceClass"   : { "Ref" : "DBClass" },
+                "DBSecurityGroups"  : [{ "Ref" : "DBSecurityGroup" }],
+                "AllocatedStorage"  : { "Ref" : "DBAllocatedStorage" },
+                "MasterUserPassword": { "Ref" : "DBPassword" },
+                "Tags" : [ {"Key" : "Environment", "Value" : { "Ref" : "Environment" }},
+                    {"Key" : "DBName", "Value" : { "Ref" : "DBName" }},
+                    {"Key" : "33DigitBillingCode", "Value" : { "Ref" : "33DigitBillingCode" }}]
+            }
+        },
+        "WebAdminGroup" : {
+          "Type" : "AWS::AutoScaling::AutoScalingGroup",
+          "Properties" : {
+            "AvailabilityZones" : [ "us-east-1b", "us-east-1d", "us-east-1e" ],
+            "VPCZoneIdentifier" : [ "subnet-c64176b2", "subnet-32c0b11a", "subnet-28ffa96e" ],
+            "LaunchConfigurationName" : { "Ref" : "WebAdminLaunchConfig" },
+            "MinSize" : "1",
+            "MaxSize" : "1",
+            "DesiredCapacity" : "1",
+            "Tags" : [ {"Key" : "Environment", "Value" : { "Ref" : "Environment" }, "PropagateAtLaunch" : "true" },
+                    {"Key" : "Name", "Value" : { "Fn::Join" : ["", [{ "Ref" : "AWS::StackName" }, " Web Admin Server"]] }, "PropagateAtLaunch" : "true" },
+                    {"Key" : "33DigitBillingCode", "Value" : { "Ref" : "33DigitBillingCode" }, "PropagateAtLaunch" : "true" }]
+          }
+        },
+
+        "WebAdminLaunchConfig": {
+          "Type" : "AWS::AutoScaling::LaunchConfiguration",
+          "Properties": {
+            "AssociatePublicIpAddress" : "true",
+            "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
+                    { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
+            "InstanceType": "t1.micro",
+            "IamInstanceProfile" : { "Ref" : "InstanceProfile" },
+            "KeyName": { "Ref" : "KeyName" },
+            "SecurityGroups" : [ {"Ref" : "WebAdminSecurityGroup" }, "sg-501be535", {"Ref" : "WebServerSecurityGroup" } ],
+            "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
+              "#!/bin/bash -v\n",
+
+              "# Helper function\n",
+              "function error_exit\n",
+              "{\n",
+              "  /opt/aws/bin/cfn-signal -e 1 -r \"$1\" '", { "Ref" : "WaitHandle" }, "'\n",
+              "  exit 1\n",
+              "}\n",
+              "#Update this with the IP of your NAT instance IP\n",
+              "#route add -net 0.0.0.0 netmask 0.0.0.0 gw ",
+              { "Ref" : "NATInstanceIP" },
+              " eth0\n",
+              "#route del -net 0.0.0.0 netmask 0.0.0.0 gw 10.0.0.1 eth0\n",
+
+              "# Make environment variables for helper user data scripts\n",
+              "export TestDomain=", { "Ref" : "TestDomain" }, "\n",
+              "export S3Bucket=", { "Ref" : "S3Bucket" }, "\n",
+              "export CacheEndpointAddress=", { "Fn::GetAtt" : [ "CacheCluster", "ConfigurationEndpoint.Address" ]}, "\n",
+              "export CacheEndpointPort=", { "Fn::GetAtt" : [ "CacheCluster", "ConfigurationEndpoint.Port" ]}, "\n",
+              "export DBName=", { "Ref" : "DBName" }, "\n",
+              "export DBUsername=", { "Ref" : "DBUsername" }, "\n",
+              "export DBPassword=", { "Ref" : "DBPassword" }, "\n",
+              "export DBAddress=", {"Fn::GetAtt" : ["DBInstance", "Endpoint.Address"]}, "\n",
+              "export DBPort=", {"Fn::GetAtt" : ["DBInstance", "Endpoint.Port"]}, "\n",
+              "export DBPrefix=", { "Ref" : "DBPrefix" }, "\n",
+              "export CodePath=", { "Fn::Join": [
+                  "",
+                  [
+                      "hwp-devops/",
+                      {
+                          "Ref": "CodeFolder"
+                      },
+                      "/",
+                      {
+                          "Ref": "Environment"
+                      }
+                  ]
+                ]
+                }, "\n",
+              "# Get Instance ID\n",
+              "export INSTANCE_ID=`curl -s http://169.254.169.254/latest/meta-data/instance-id`\n",
+              "# Associate Elastic IP with Instance (allocation id belongs to designated EIP)\n",
+              "aws ec2 associate-address --instance-id $INSTANCE_ID --allocation-id ", { "Ref" : "WebAdminElasticIP" }, " --region us-east-1\n",
+              "mkdir -p /opt/aws/bootstrap\n",
+              "aws s3 cp s3://$CodePath/devops/cloudformation-helper-scripts/runbook.sh /opt/aws/bootstrap/runbook.sh --region us-east-1\n",
+              "(crontab -l ; echo \"0,10,20,30,40,50 * * * * /usr/bin/wget -O - -q http://", { "Ref" : "WebAdminIP" }, "/cron.php?cron_key=2T3z-hXFalc6rtyHFCCHj9gInJNAblzaSa4YbWM8BHg\") | crontab -\n",
+              "chmod 700 /opt/aws/bootstrap/runbook.sh\n",
+              "/opt/aws/bootstrap/runbook.sh\n",
+              "# Remove the base_url from the web admin box\n",
+              "sed -i '/base_url/d' /var/www/settings.inc\n"
+
+             ]]}}
+          }
+        },
+        
+        "CacheSubnetGroup" : {
+          "Type" : "AWS::ElastiCache::SubnetGroup",
+          "Properties" : {
+                "Description" : "Subnets available for the ElastiCache Cluster",
+                "SubnetIds" : [ "subnet-c54176b1", "subnet-33c0b11b", "subnet-2bffa96d" ]
+          }
+        },
+
+        "CacheSecurityGroup" : {
+          "Type" : "AWS::EC2::SecurityGroup",
+          "Properties" : {
+            "GroupDescription" : "Allow access to the cache from the Web Servers",
+            "VpcId" : "vpc-671e0f05",
+            "SecurityGroupIngress" : [
+              {"IpProtocol" : "tcp", "FromPort" : "11211", "ToPort" : "11211", "SourceSecurityGroupId" : { "Ref" : "WebServerSecurityGroup"} }
+            ]
+          }      
+        },  
+
+        "DBSubnetGrp" :{
+            "Type" : "AWS::RDS::DBSubnetGroup",
+            "Properties" : {
+                "DBSubnetGroupDescription" : "RDSSubnetGroup",
+                "SubnetIds" : [ "subnet-c54176b1", "subnet-33c0b11b", "subnet-2bffa96d" ],
+                "Tags" : [ {"Key" : "Environment", "Value" : { "Ref" : "Environment" }},
+                    {"Key" : "DBName", "Value" : { "Ref" : "DBName" }},
+                    {"Key" : "33DigitBillingCode", "Value" : { "Ref" : "33DigitBillingCode" }}]
+            }
+        },
+        "DBSecurityGroup": {
+            "Type": "AWS::RDS::DBSecurityGroup",
+            "Properties": {
+                "EC2VpcId" : "vpc-671e0f05",
+                "DBSecurityGroupIngress": [
+                    { "EC2SecurityGroupId": { "Ref": "WebServerSecurityGroup"} }
+                ],
+                "GroupDescription"      : "Frontend Access"
+            }
+        },
+        "ELBSecurityGroup" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "VpcId" : "vpc-671e0f05",
+                "GroupDescription": "Enable inbound access via 80 and 443 to the ELB",
+                "SecurityGroupIngress": [
+                    {"IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "0.0.0.0/0"},
+                    {"IpProtocol" : "tcp", "FromPort" : "443", "ToPort" : "443", "CidrIp" : "0.0.0.0/0"}
+                ]
+            }
+        },
+        "WebServerSecurityGroup" : {
+          "Type" : "AWS::EC2::SecurityGroup",
+          "Properties" : {
+          "VpcId" : "vpc-671e0f05",
+          "GroupDescription" : "Enable HTTP access via port 80, locked down to requests from the load balancer only and SSH access"
+        
+        }
+      },
+      "WebServerSecurityGroupIngressELB": {
+        "Type": "AWS::EC2::SecurityGroupIngress",
+        "Properties":  
+        {
+            "GroupId": { "Ref": "WebServerSecurityGroup" },
+            "IpProtocol" : "tcp",
+            "FromPort" :  "80",
+            "ToPort" :  "80",
+            "SourceSecurityGroupId" : { "Ref" : "ELBSecurityGroup" }
+        }
+      },
+      "WebServerSecurityGroupIngressSSH": {
+        "Type": "AWS::EC2::SecurityGroupIngress",
+        "Properties": 
+        {
+            "GroupId": { "Ref": "WebServerSecurityGroup" },
+            "IpProtocol" : "tcp",
+            "FromPort" :  "22",
+            "ToPort" :  "22",
+            "CidrIp" : { "Ref" : "SSHLocation" }
+        }
+      },
+      "WebAdminSecurityGroup" : {
+          "Type" : "AWS::EC2::SecurityGroup",
+          "Properties" : {
+              "VpcId" : "vpc-671e0f05",
+              "GroupDescription": "Enable inbound access via 80 to the Web Admin box via Harvard",
+              "SecurityGroupIngress": [
+                  {"IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "128.103.224.241/32"},
+                  {"IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "128.103.224.219/32"}
+              ]
+          }
+      }
+    },
+
+    "Outputs" : {
+        "ElasticLoadBalancerURL" : {
+            "Value" : { "Fn::Join" : ["", ["http://", { "Fn::GetAtt" : [ "ElasticLoadBalancer", "DNSName" ]}]] },
+            "Description" : "ELB URL"
+        },
+        "CloudFrontURL" : {
+            "Value" : { "Fn::Join" : ["", ["http://", { "Fn::GetAtt" : [ "Distribution", "DomainName" ]}]] },
+            "Description" : "CloudFront URL"
+        }
+    }
+}
