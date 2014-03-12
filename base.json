@@ -68,6 +68,15 @@
             "ConstraintDescription" : "must be between 1 and 3 EC2 instances."
         },
         
+        "appServerCapacity": {
+            "Default": "2",
+            "Description" : "The initial number of AppServer instances. 2 for dev and test(default), *set to 3 for production*",
+            "Type": "Number",
+            "MinValue": "2",
+            "MaxValue": "3",
+            "ConstraintDescription" : "must be between 1 and 3 EC2 instances."
+        },
+        
         "NATInstanceIP" : {
             "Description" : "Internal IP of NAT Instance",
             "Type" : "String",
@@ -297,7 +306,7 @@
             "Properties" : {
                 "AvailabilityZones" : [ "us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d" ],
                 "VPCZoneIdentifier" : [ "subnet-f9676697", "subnet-ed666783", "subnet-38666756", "subnet-6f666701" ],
-                "LaunchConfigurationName" : { "Ref" : "LaunchConfig" },
+                "LaunchConfigurationName" : { "Ref" : "WebLaunchConfig" },
                 "MinSize" : { "Ref" : "WebServerCapacity" },
                 "MaxSize" : "6",
                 "DesiredCapacity" : { "Ref" : "WebServerCapacity" },
@@ -368,7 +377,7 @@
                 "ComparisonOperator": "LessThanThreshold"
             }
         },
-        "LaunchConfig": {
+        "WebLaunchConfig": {
             "Type" : "AWS::AutoScaling::LaunchConfiguration",
             "Properties": {
                 "AssociatePublicIpAddress" : "true",
@@ -384,25 +393,25 @@
                     "# Helper function\n",
                     "function error_exit\n",
                     "{\n",
-                    "  /opt/aws/bin/cfn-signal -e 1 -r \"$1\" '", { "Ref" : "WaitHandle" }, "'\n",
+                    "  /opt/aws/bin/cfn-signal -e 1 -r \"$1\" '", { "Ref" : "WebWaitHandle" }, "'\n",
                     "  exit 1\n",
                     "}\n",
 
                     "# Make environment variables for helper user data scripts\n",
                     "export TestDomain=", { "Ref" : "TestDomain" }, "\n",
                     "export StaticAssetS3Bucket=", { "Ref" : "StaticAssetS3Bucket" }, "\n",
-                    "export CacheEndpointAddress=", { "Fn::GetAtt" : [ "CacheCluster", "ConfigurationEndpoint.Address" ]}, "\n",
-                    "export CacheEndpointPort=", { "Fn::GetAtt" : [ "CacheCluster", "ConfigurationEndpoint.Port" ]}, "\n",
-                    "export DBName=", { "Ref" : "DBName" }, "\n",
-                    "export DBUsername=", { "Ref" : "DBUsername" }, "\n",
-                    "export DBPassword=", { "Ref" : "DBPassword" }, "\n",
-                    "export DBAddress=", {"Fn::GetAtt" : ["DBInstance", "Endpoint.Address"]}, "\n",
-                    "export DBPort=", {"Fn::GetAtt" : ["DBInstance", "Endpoint.Port"]}, "\n",
-                    "export DBPrefix=", { "Ref" : "DBPrefix" }, "\n",
+                    "#export CacheEndpointAddress=", { "Fn::GetAtt" : [ "CacheCluster", "ConfigurationEndpoint.Address" ]}, "\n",
+                    "#export CacheEndpointPort=", { "Fn::GetAtt" : [ "CacheCluster", "ConfigurationEndpoint.Port" ]}, "\n",
+                    "#export DBName=", { "Ref" : "DBName" }, "\n",
+                    "#export DBUsername=", { "Ref" : "DBUsername" }, "\n",
+                    "#export DBPassword=", { "Ref" : "DBPassword" }, "\n",
+                    "#export DBAddress=", {"Fn::GetAtt" : ["DBInstance", "Endpoint.Address"]}, "\n",
+                    "#export DBPort=", {"Fn::GetAtt" : ["DBInstance", "Endpoint.Port"]}, "\n",
+                    "#export DBPrefix=", { "Ref" : "DBPrefix" }, "\n",
                     "export CodePath=", { "Fn::Join": [
                         "",
                         [
-                            "hwp-devops/",
+                            "hbp-devops/",
                             {
                                 "Ref": "CodeFolder"
                             },
@@ -424,191 +433,150 @@
             }
         },
 
-        "WaitHandle" : {
+        "WebWaitHandle" : {
             "Type" : "AWS::CloudFormation::WaitConditionHandle"
         },
 
-        "WaitCondition" : {
+        "WebWaitCondition" : {
             "Type" : "AWS::CloudFormation::WaitCondition",
             "DependsOn" : "WebServerGroup",
             "Properties" : {
                 "Count" : "0",
-                "Handle" : {"Ref" : "WaitHandle"},
+                "Handle" : {"Ref" : "WebWaitHandle"},
                 "Timeout" : "600"
             }
         },
-
-        "CacheCluster" : {
-          "Type": "AWS::ElastiCache::CacheCluster",
-          "Properties": {
-            "CacheSubnetGroupName" : { "Ref" : "CacheSubnetGroup" },
-            "CacheNodeType"        : { "Ref" : "CacheNodeType" },
-            "VpcSecurityGroupIds"  : [ { "Ref" : "CacheSecurityGroup" } ],
-            "Engine"               : "memcached",
-            "NumCacheNodes"        : { "Ref" : "NumberOfCacheNodes" }
-          }
-        },
-
-        "DBInstance" : {
-            "Type": "AWS::RDS::DBInstance",
-            "Properties": {
-                "AutoMinorVersionUpgrade" : { "Ref" : "DBPatching" },
-                "BackupRetentionPeriod" : { "Ref" : "DBBackup" },
-                "DBSubnetGroupName": { "Ref" : "DBSubnetGrp" },
-                "PreferredBackupWindow" : "07:00-09:00",
-                "PreferredMaintenanceWindow" : "Mon:09:30-Mon:12:00",
-                "DBName"            : { "Ref" : "DBName" },
-                "Engine"            : "MySQL",
-                "MultiAZ"           : { "Ref": "MultiAZDatabase" },
-                "MasterUsername"    : { "Ref" : "DBUsername" },
-                "DBInstanceClass"   : { "Ref" : "DBClass" },
-                "DBSecurityGroups"  : [{ "Ref" : "DBSecurityGroup" }],
-                "AllocatedStorage"  : { "Ref" : "DBAllocatedStorage" },
-                "MasterUserPassword": { "Ref" : "DBPassword" },
-                "Tags" : [ {"Key" : "Environment", "Value" : { "Ref" : "Environment" }},
-                    {"Key" : "DBName", "Value" : { "Ref" : "DBName" }},
-                    {"Key" : "33DigitBillingCode", "Value" : { "Ref" : "33DigitBillingCode" }}]
+        
+        "appElasticLoadBalancer" : {
+            "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+            "Metadata" : {
+                "Comment" : "Configure the Load Balancer with a simple health check and cookie-based stickiness"
+            },
+            "Properties" : {
+                "Subnets" : [ "subnet-1bded677", "subnet-28a28843", "subnet-a2f4e2c9", "subnet-ae3639c5" ],
+                "SecurityGroups" : [{ "Ref" : "appELBSecurityGroup" }],
+                "CrossZone" : "True",
+                "Listeners" : [ {
+                    "LoadBalancerPort" : "8080",
+                    "InstancePort" : "8080",
+                    "Protocol" : "HTTP"
+                } ],
+                "HealthCheck" : {
+                    "Target" : "HTTP:80/",
+                    "HealthyThreshold" : "2",
+                    "UnhealthyThreshold" : "6",
+                    "Interval" : "10",
+                    "Timeout" : "5"
+                }
             }
         },
-        "WebAdminGroup" : {
-          "Type" : "AWS::AutoScaling::AutoScalingGroup",
-          "Properties" : {
-            "AvailabilityZones" : [ "us-east-1b", "us-east-1d", "us-east-1e" ],
-            "VPCZoneIdentifier" : [ "subnet-c64176b2", "subnet-32c0b11a", "subnet-28ffa96e" ],
-            "LaunchConfigurationName" : { "Ref" : "WebAdminLaunchConfig" },
-            "MinSize" : "1",
-            "MaxSize" : "1",
-            "DesiredCapacity" : "1",
-            "Tags" : [ {"Key" : "Environment", "Value" : { "Ref" : "Environment" }, "PropagateAtLaunch" : "true" },
-                    {"Key" : "Name", "Value" : { "Fn::Join" : ["", [{ "Ref" : "AWS::StackName" }, " Web Admin Server"]] }, "PropagateAtLaunch" : "true" },
-                    {"Key" : "33DigitBillingCode", "Value" : { "Ref" : "33DigitBillingCode" }, "PropagateAtLaunch" : "true" }]
-          }
-        },
 
-        "WebAdminLaunchConfig": {
-          "Type" : "AWS::AutoScaling::LaunchConfiguration",
-          "Properties": {
-            "AssociatePublicIpAddress" : "true",
-            "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
-                    { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
-            "InstanceType": "t1.micro",
-            "IamInstanceProfile" : { "Ref" : "InstanceProfile" },
-            "KeyName": { "Ref" : "KeyName" },
-            "SecurityGroups" : [ {"Ref" : "WebAdminSecurityGroup" }, "sg-501be535", {"Ref" : "WebServerSecurityGroup" } ],
-            "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
-              "#!/bin/bash -v\n",
-
-              "# Helper function\n",
-              "function error_exit\n",
-              "{\n",
-              "  /opt/aws/bin/cfn-signal -e 1 -r \"$1\" '", { "Ref" : "WaitHandle" }, "'\n",
-              "  exit 1\n",
-              "}\n",
-              "#Update this with the IP of your NAT instance IP\n",
-              "#route add -net 0.0.0.0 netmask 0.0.0.0 gw ",
-              { "Ref" : "NATInstanceIP" },
-              " eth0\n",
-              "#route del -net 0.0.0.0 netmask 0.0.0.0 gw 10.0.0.1 eth0\n",
-
-              "# Make environment variables for helper user data scripts\n",
-              "export TestDomain=", { "Ref" : "TestDomain" }, "\n",
-              "export StaticAssetS3Bucket=", { "Ref" : "StaticAssetS3Bucket" }, "\n",
-              "export CacheEndpointAddress=", { "Fn::GetAtt" : [ "CacheCluster", "ConfigurationEndpoint.Address" ]}, "\n",
-              "export CacheEndpointPort=", { "Fn::GetAtt" : [ "CacheCluster", "ConfigurationEndpoint.Port" ]}, "\n",
-              "export DBName=", { "Ref" : "DBName" }, "\n",
-              "export DBUsername=", { "Ref" : "DBUsername" }, "\n",
-              "export DBPassword=", { "Ref" : "DBPassword" }, "\n",
-              "export DBAddress=", {"Fn::GetAtt" : ["DBInstance", "Endpoint.Address"]}, "\n",
-              "export DBPort=", {"Fn::GetAtt" : ["DBInstance", "Endpoint.Port"]}, "\n",
-              "export DBPrefix=", { "Ref" : "DBPrefix" }, "\n",
-              "export CodePath=", { "Fn::Join": [
-                  "",
-                  [
-                      "hwp-devops/",
-                      {
-                          "Ref": "CodeFolder"
-                      },
-                      "/",
-                      {
-                          "Ref": "Environment"
-                      }
-                  ]
-                ]
-                }, "\n",
-              "# Get Instance ID\n",
-              "export INSTANCE_ID=`curl -s http://169.254.169.254/latest/meta-data/instance-id`\n",
-              "# Associate Elastic IP with Instance (allocation id belongs to designated EIP)\n",
-              "aws ec2 associate-address --instance-id $INSTANCE_ID --allocation-id ", { "Ref" : "WebAdminElasticIP" }, " --region us-east-1\n",
-              "mkdir -p /opt/aws/bootstrap\n",
-              "aws s3 cp s3://$CodePath/devops/cloudformation-helper-scripts/runbook.sh /opt/aws/bootstrap/runbook.sh --region us-east-1\n",
-              "(crontab -l ; echo \"0,10,20,30,40,50 * * * * /usr/bin/wget -O - -q http://", { "Ref" : "WebAdminIP" }, "/cron.php?cron_key=2T3z-hXFalc6rtyHFCCHj9gInJNAblzaSa4YbWM8BHg\") | crontab -\n",
-              "chmod 700 /opt/aws/bootstrap/runbook.sh\n",
-              "/opt/aws/bootstrap/runbook.sh\n",
-              "# Remove the base_url from the web admin box\n",
-              "sed -i '/base_url/d' /var/www/settings.inc\n"
-
-             ]]}}
-          }
+        "appServerGroup" : {
+            "Type" : "AWS::AutoScaling::AutoScalingGroup",
+            "Properties" : {
+                "AvailabilityZones" : [ "us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d" ],
+                "VPCZoneIdentifier" : [ "subnet-1bded677", "subnet-28a28843", "subnet-a2f4e2c9", "subnet-ae3639c5" ],
+                "LaunchConfigurationName" : { "Ref" : "appLaunchConfig" },
+                "MinSize" : { "Ref" : "appServerCapacity" },
+                "MaxSize" : { "Ref" : "appServerCapacity" },
+                "DesiredCapacity" : { "Ref" : "appServerCapacity" },
+                "LoadBalancerNames" : [ { "Ref" : "appElasticLoadBalancer" } ],
+                "Tags" : [ {"Key" : "Environment", "Value" : { "Ref" : "Environment" }, "PropagateAtLaunch" : "true"},
+                    {"Key" : "Name", "Value" : { "Fn::Join" : ["", [{ "Ref" : "AWS::StackName" }, " App Server"]] }, "PropagateAtLaunch" : "true" },
+                    {"Key" : "BusinessUnit", "Value" : { "Ref" : "BusinessUnit" }, "PropagateAtLaunch" : "true"} ]
+            }
         },
         
-        "CacheSubnetGroup" : {
-          "Type" : "AWS::ElastiCache::SubnetGroup",
-          "Properties" : {
-                "Description" : "Subnets available for the ElastiCache Cluster",
-                "SubnetIds" : [ "subnet-c54176b1", "subnet-33c0b11b", "subnet-2bffa96d" ]
-          }
-        },
-
-        "CacheSecurityGroup" : {
-          "Type" : "AWS::EC2::SecurityGroup",
-          "Properties" : {
-            "GroupDescription" : "Allow access to the cache from the Web Servers",
-            "VpcId" : "vpc-671e0f05",
-            "SecurityGroupIngress" : [
-              {"IpProtocol" : "tcp", "FromPort" : "11211", "ToPort" : "11211", "SourceSecurityGroupId" : { "Ref" : "WebServerSecurityGroup"} }
-            ]
-          }      
-        },  
-
-        "DBSubnetGrp" :{
-            "Type" : "AWS::RDS::DBSubnetGroup",
-            "Properties" : {
-                "DBSubnetGroupDescription" : "RDSSubnetGroup",
-                "SubnetIds" : [ "subnet-c54176b1", "subnet-33c0b11b", "subnet-2bffa96d" ],
-                "Tags" : [ {"Key" : "Environment", "Value" : { "Ref" : "Environment" }},
-                    {"Key" : "DBName", "Value" : { "Ref" : "DBName" }},
-                    {"Key" : "33DigitBillingCode", "Value" : { "Ref" : "33DigitBillingCode" }}]
-            }
-        },
-        "DBSecurityGroup": {
-            "Type": "AWS::RDS::DBSecurityGroup",
+        "appLaunchConfig": {
+            "Type" : "AWS::AutoScaling::LaunchConfiguration",
             "Properties": {
-                "EC2VpcId" : "vpc-671e0f05",
-                "DBSecurityGroupIngress": [
-                    { "EC2SecurityGroupId": { "Ref": "WebServerSecurityGroup"} }
-                ],
-                "GroupDescription"      : "Frontend Access"
+                "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
+                    { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
+                "InstanceType"   : { "Ref" : "InstanceType" },
+                "IamInstanceProfile" : { "Ref" : "InstanceProfile" },
+                "SecurityGroups" : [ {"Ref" : "appServerSecurityGroup" } ],
+                "KeyName"        : { "Ref" : "KeyName" },
+                "UserData" : { "Fn::Base64" : { "Fn::Join" : [ "", [
+                    "#!/bin/bash -v\n",
+
+                    "# Helper function\n",
+                    "function error_exit\n",
+                    "{\n",
+                    "  /opt/aws/bin/cfn-signal -e 1 -r \"$1\" '", { "Ref" : "appWaitHandle" }, "'\n",
+                    "  exit 1\n",
+                    "}\n",
+
+                    "# Make environment variables for helper user data scripts\n",
+                    "export TestDomain=", { "Ref" : "TestDomain" }, "\n",
+                    "export StaticAssetS3Bucket=", { "Ref" : "StaticAssetS3Bucket" }, "\n",
+                    "#export CacheEndpointAddress=", { "Fn::GetAtt" : [ "CacheCluster", "ConfigurationEndpoint.Address" ]}, "\n",
+                    "#export CacheEndpointPort=", { "Fn::GetAtt" : [ "CacheCluster", "ConfigurationEndpoint.Port" ]}, "\n",
+                    "#export DBName=", { "Ref" : "DBName" }, "\n",
+                    "#export DBUsername=", { "Ref" : "DBUsername" }, "\n",
+                    "#export DBPassword=", { "Ref" : "DBPassword" }, "\n",
+                    "#export DBAddress=", {"Fn::GetAtt" : ["DBInstance", "Endpoint.Address"]}, "\n",
+                    "#export DBPort=", {"Fn::GetAtt" : ["DBInstance", "Endpoint.Port"]}, "\n",
+                    "#export DBPrefix=", { "Ref" : "DBPrefix" }, "\n",
+                    "export CodePath=", { "Fn::Join": [
+                        "",
+                        [
+                            "hbp-devops/",
+                            {
+                                "Ref": "CodeFolder"
+                            },
+                            "/",
+                            {
+                                "Ref": "Environment"
+                            }
+                        ]
+                    ]
+                    }, "\n",
+                    "mkdir -p /opt/aws/bootstrap\n",
+                    "aws s3 cp s3://$CodePath/devops/cloudformation-helper-scripts/runbook.sh /opt/aws/bootstrap/runbook.sh --region us-east-1\n",
+                    "# The following line is so that crontab is created on all webservers here, so that subsequent additions to crontab in helper.sh work properly\n",
+                    "(crontab -l ; echo \"#\") | crontab -\n",
+                    "chmod 700 /opt/aws/bootstrap/runbook.sh\n",
+                    "/opt/aws/bootstrap/runbook.sh\n"
+
+                ]]}}
             }
         },
-        "ELBSecurityGroup" : {
+
+        "appWaitHandle" : {
+            "Type" : "AWS::CloudFormation::WaitConditionHandle"
+        },
+
+        "appWaitCondition" : {
+            "Type" : "AWS::CloudFormation::WaitCondition",
+            "DependsOn" : "appServerGroup",
+            "Properties" : {
+                "Count" : "0",
+                "Handle" : {"Ref" : "appWaitHandle"},
+                "Timeout" : "600"
+            }
+        },
+        
+        "WebELBSecurityGroup" : {
             "Type" : "AWS::EC2::SecurityGroup",
             "Properties" : {
-                "VpcId" : "vpc-671e0f05",
-                "GroupDescription": "Enable inbound access via 80 and 443 to the ELB",
+                "VpcId" : "vpc-67a2880c",
+                "GroupDescription": "Web Tier: Enable inbound access via 80 and 443 to the ELB",
                 "SecurityGroupIngress": [
                     {"IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "0.0.0.0/0"},
                     {"IpProtocol" : "tcp", "FromPort" : "443", "ToPort" : "443", "CidrIp" : "0.0.0.0/0"}
                 ]
             }
         },
+        
         "WebServerSecurityGroup" : {
           "Type" : "AWS::EC2::SecurityGroup",
           "Properties" : {
-          "VpcId" : "vpc-671e0f05",
-          "GroupDescription" : "Enable HTTP access via port 80, locked down to requests from the load balancer only and SSH access"
+          "VpcId" : "vpc-67a2880c",
+          "GroupDescription" : "Web Tier: Enable HTTP access via port 443, locked down to requests from the load balancer only and SSH access"
         
         }
       },
+      
       "WebServerSecurityGroupIngressELB": {
         "Type": "AWS::EC2::SecurityGroupIngress",
         "Properties":  
@@ -617,9 +585,22 @@
             "IpProtocol" : "tcp",
             "FromPort" :  "80",
             "ToPort" :  "80",
-            "SourceSecurityGroupId" : { "Ref" : "ELBSecurityGroup" }
+            "SourceSecurityGroupId" : { "Ref" : "WebELBSecurityGroup" }
         }
       },
+      
+      "WebServerSSLSecurityGroupIngressELB": {
+        "Type": "AWS::EC2::SecurityGroupIngress",
+        "Properties":  
+        {
+            "GroupId": { "Ref": "WebServerSecurityGroup" },
+            "IpProtocol" : "tcp",
+            "FromPort" :  "443",
+            "ToPort" :  "443",
+            "SourceSecurityGroupId" : { "Ref" : "WebELBSecurityGroup" }
+        }
+      },
+      
       "WebServerSecurityGroupIngressSSH": {
         "Type": "AWS::EC2::SecurityGroupIngress",
         "Properties": 
@@ -631,17 +612,56 @@
             "CidrIp" : { "Ref" : "SSHLocation" }
         }
       },
-      "WebAdminSecurityGroup" : {
+      
+      "appELBSecurityGroup" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "VpcId" : "vpc-67a2880c",
+                "GroupDescription": "App Tier: Enable inbound access via 80 and 443 to the ELB",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol" : "tcp",
+                        "FromPort" : "8080", 
+                        "ToPort" : "8080",
+                        "SourceSecurityGroupId" : { "Ref" : "appServerSecurityGroup" }
+                    }
+                ]
+            }
+        },
+        
+        "appServerSecurityGroup" : {
           "Type" : "AWS::EC2::SecurityGroup",
           "Properties" : {
-              "VpcId" : "vpc-671e0f05",
-              "GroupDescription": "Enable inbound access via 80 to the Web Admin box via Harvard",
-              "SecurityGroupIngress": [
-                  {"IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "128.103.224.241/32"},
-                  {"IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "128.103.224.219/32"}
-              ]
-          }
+          "VpcId" : "vpc-67a2880c",
+          "GroupDescription" : "Enable HTTP access via port 8080, locked down to requests from the load balancer only and SSH access"
+        
+        }
+      },
+      
+      "appServerSecurityGroupIngressELB": {
+        "Type": "AWS::EC2::SecurityGroupIngress",
+        "Properties":  
+        {
+            "GroupId": { "Ref": "appServerSecurityGroup" },
+            "IpProtocol" : "tcp",
+            "FromPort" :  "8080",
+            "ToPort" :  "8080",
+            "SourceSecurityGroupId" : { "Ref" : "appELBSecurityGroup" }
+        }
+      },
+      
+      "appServerSecurityGroupIngressSSH": {
+        "Type": "AWS::EC2::SecurityGroupIngress",
+        "Properties": 
+        {
+            "GroupId": { "Ref": "appServerSecurityGroup" },
+            "IpProtocol" : "tcp",
+            "FromPort" :  "22",
+            "ToPort" :  "22",
+            "CidrIp" : { "Ref" : "SSHLocation" }
+        }
       }
+      
     },
 
     "Outputs" : {
