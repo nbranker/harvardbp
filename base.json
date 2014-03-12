@@ -274,11 +274,8 @@
             },
             "Properties" : {
                 "Subnets" : [ "subnet-f9676697", "subnet-ed666783", "subnet-38666756", "subnet-6f666701" ],
-                "SecurityGroups" : [{ "Ref" : "ELBSecurityGroup" }],
-                "LBCookieStickinessPolicy" : [ {
-                    "PolicyName" : "CookieBasedPolicy",
-                    "CookieExpirationPeriod" : "30"
-                } ],
+                "SecurityGroups" : [{ "Ref" : "wwwELBSecurityGroup" }],
+                "CrossZone" : "True",
                 "Listeners" : [ {
                     "LoadBalancerPort" : "80",
                     "InstancePort" : "80",
@@ -298,19 +295,19 @@
         "WebServerGroup" : {
             "Type" : "AWS::AutoScaling::AutoScalingGroup",
             "Properties" : {
-                "AvailabilityZones" : [ "us-east-1b", "us-east-1d", "us-east-1e" ],
-                "VPCZoneIdentifier" : [ "subnet-c64176b2", "subnet-32c0b11a", "subnet-28ffa96e" ],
+                "AvailabilityZones" : [ "us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d" ],
+                "VPCZoneIdentifier" : [ "subnet-f9676697", "subnet-ed666783", "subnet-38666756", "subnet-6f666701" ],
                 "LaunchConfigurationName" : { "Ref" : "LaunchConfig" },
-                "MinSize" : "2",
-                "MaxSize" : "8",
+                "MinSize" : { "Ref" : "WebServerCapacity" },
+                "MaxSize" : "6",
                 "DesiredCapacity" : { "Ref" : "WebServerCapacity" },
-                "LoadBalancerNames" : [ { "Ref" : "ElasticLoadBalancer" } ],
+                "LoadBalancerNames" : [ { "Ref" : "wwwElasticLoadBalancer" } ],
                 "Tags" : [ {"Key" : "Environment", "Value" : { "Ref" : "Environment" }, "PropagateAtLaunch" : "true"},
                     {"Key" : "Name", "Value" : { "Fn::Join" : ["", [{ "Ref" : "AWS::StackName" }, " Web Server"]] }, "PropagateAtLaunch" : "true" },
-                    {"Key" : "DBName", "Value" : { "Ref" : "DBName" }, "PropagateAtLaunch" : "true"},
-                    {"Key" : "33DigitBillingCode", "Value" : { "Ref" : "33DigitBillingCode" }, "PropagateAtLaunch" : "true"}]
+                    {"Key" : "BusinessUnit", "Value" : { "Ref" : "BusinessUnit" }, "PropagateAtLaunch" : "true"} ]
             }
         },
+        
         "WebServerScaleUpPolicy" : {
             "Type" : "AWS::AutoScaling::ScalingPolicy",
             "Properties" : {
@@ -320,6 +317,7 @@
                 "ScalingAdjustment" : "2"
             }
         },
+        
         "WebServerScaleDownPolicy" : {
             "Type" : "AWS::AutoScaling::ScalingPolicy",
             "Properties" : {
@@ -333,13 +331,13 @@
         "CPUAlarmHigh": {
             "Type": "AWS::CloudWatch::Alarm",
             "Properties": {
-                "AlarmDescription": "Scale-up if CPU > 80% for 10 minutes",
+                "AlarmDescription": "Scale-up if CPU > 90% for 10 minutes",
                 "MetricName": "CPUUtilization",
                 "Namespace": "AWS/EC2",
                 "Statistic": "Average",
                 "Period": "300",
                 "EvaluationPeriods": "2",
-                "Threshold": "80",
+                "Threshold": "90",
                 "AlarmActions": [ { "Ref": "WebServerScaleUpPolicy" } ],
                 "Dimensions": [
                     {
@@ -353,13 +351,13 @@
         "CPUAlarmLow": {
             "Type": "AWS::CloudWatch::Alarm",
             "Properties": {
-                "AlarmDescription": "Scale-down if CPU < 30% for 10 minutes",
+                "AlarmDescription": "Scale-down if CPU < 10% for 10 minutes",
                 "MetricName": "CPUUtilization",
                 "Namespace": "AWS/EC2",
                 "Statistic": "Average",
                 "Period": "300",
                 "EvaluationPeriods": "2",
-                "Threshold": "30",
+                "Threshold": "10",
                 "AlarmActions": [ { "Ref": "WebServerScaleDownPolicy" } ],
                 "Dimensions": [
                     {
