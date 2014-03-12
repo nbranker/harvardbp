@@ -113,170 +113,13 @@
         "Distribution": {
             "Type" : "AWS::CloudFront::Distribution",
             "Properties" : {
-                "DistributionConfig" : {
-                    "Aliases" : [ { "Ref" : "TestDomain" } ],
-                    "Origins" : [
-                        {
-                            "DomainName": { "Fn::GetAtt" : ["ElasticLoadBalancer", "DNSName"] },
-                            "Id": "ELBOrigin",
-                            "CustomOriginConfig": {
-                                "HTTPPort": "80",
-                                "HTTPSPort": "443",
-                                "OriginProtocolPolicy": "http-only"
-                            }
-                        },
-                        {
-                            "DomainName" : { "Fn::GetAtt" : ["S3BucketBlank", "DomainName"] },
-                            "Id" : "S3BucketBlankOrigin",
-                            "S3OriginConfig" : {
-                            }
-                        }
-                    ],
-                    "Enabled" : "true",
-                    "DefaultRootObject" : "index.php",
-                    "Logging" : {
-                        "Bucket" : "mylogs.s3.amazonaws.com",
-                        "Prefix" : "myprefix"
-                    },
-                    "DefaultCacheBehavior" : {
-                        "TargetOriginId" : "ELBOrigin",
-                        "ForwardedValues" : {
-                            "QueryString" : "false"
-                        },
-                        "ViewerProtocolPolicy" : "allow-all"
-                    },
-                    "CacheBehaviors" : [ {
-                        "TargetOriginId" : "ELBOrigin",
-                        "ForwardedValues" : {
-                            "QueryString" : "true"
-                        },
-                        "ViewerProtocolPolicy" : "allow-all",
-                        "MinTTL" : "50",
-                        "PathPattern" : "/feedback"
-                    },
-                        {
-                            "TargetOriginId" : "ELBOrigin",
-                            "ForwardedValues" : {
-                                "QueryString" : "true"
-                            },
-                            "ViewerProtocolPolicy" : "allow-all",
-                            "MinTTL" : "50",
-                            "PathPattern" : "/searches"
-                        },
-                        {
-                            "TargetOriginId" : "ELBOrigin",
-                            "ForwardedValues" : {
-                                "QueryString" : "true"
-                            },
-                            "ViewerProtocolPolicy" : "allow-all",
-                            "MinTTL" : "50",
-                            "PathPattern" : "/searches/*"
-                        },
-                        {
-                            "TargetOriginId" : "ELBOrigin",
-                            "ForwardedValues" : {
-                                "QueryString" : "true"
-                            },
-                            "ViewerProtocolPolicy" : "allow-all",
-                            "MinTTL" : "50",
-                            "PathPattern" : "/social-media"
-                        },
-                        {
-                            "TargetOriginId" : "ELBOrigin",
-                            "ForwardedValues" : {
-                                "QueryString" : "true"
-                            },
-                            "ViewerProtocolPolicy" : "allow-all",
-                            "MinTTL" : "50",
-                            "PathPattern" : "/harvard-social-media"
-                        },
-                        {
-                            "TargetOriginId" : "ELBOrigin",
-                            "ForwardedValues" : {
-                                "QueryString" : "true"
-                            },
-                            "ViewerProtocolPolicy" : "allow-all",
-                            "MinTTL" : "50",
-                            "PathPattern" : "/ajax*"
-                        },
-                        {
-                            "TargetOriginId" : "ELBOrigin",
-                            "ForwardedValues" : {
-                                "QueryString" : "true"
-                            },
-                            "ViewerProtocolPolicy" : "allow-all",
-                            "MinTTL" : "50",
-                            "PathPattern" : "*functions.js"
-                        },
-                        {
-                            "TargetOriginId" : "S3BucketBlankOrigin",
-                            "ForwardedValues" : {
-                                "QueryString" : "false"
-                            },
-                            "ViewerProtocolPolicy" : "allow-all",
-                            "MinTTL" : "50",
-                            "PathPattern" : "/user"
-                        },
-                        {
-                            "TargetOriginId" : "S3BucketBlankOrigin",
-                            "ForwardedValues" : {
-                                "QueryString" : "false"
-                            },
-                            "ViewerProtocolPolicy" : "allow-all",
-                            "MinTTL" : "50",
-                            "PathPattern" : "/user/*"
-                        },
-                        {
-                            "TargetOriginId" : "S3BucketBlankOrigin",
-                            "ForwardedValues" : {
-                                "QueryString" : "false"
-                            },
-                            "ViewerProtocolPolicy" : "allow-all",
-                            "MinTTL" : "50",
-                            "PathPattern" : "/admin"
-                        },
-                        {
-                            "TargetOriginId" : "S3BucketBlankOrigin",
-                            "ForwardedValues" : {
-                                "QueryString" : "false"
-                            },
-                            "ViewerProtocolPolicy" : "allow-all",
-                            "MinTTL" : "50",
-                            "PathPattern" : "/admin/*"
-                        },
-                        {
-                            "TargetOriginId" : "S3BucketBlankOrigin",
-                            "ForwardedValues" : {
-                                "QueryString" : "false"
-                            },
-                            "ViewerProtocolPolicy" : "allow-all",
-                            "MinTTL" : "50",
-                            "PathPattern" : "/editor"
-                        },
-                        {
-                            "TargetOriginId" : "S3BucketBlankOrigin",
-                            "ForwardedValues" : {
-                                "QueryString" : "false"
-                            },
-                            "ViewerProtocolPolicy" : "allow-all",
-                            "MinTTL" : "50",
-                            "PathPattern" : "/editor/*"
-                        },
-                        {
-                            "TargetOriginId" : "ELBOrigin",
-                            "ForwardedValues" : {
-                                "QueryString" : "false"
-                            },
-                            "ViewerProtocolPolicy" : "allow-all",
-                            "MinTTL" : "50",
-                            "PathPattern" : "*"
-                        }
-                    ]
-                }
+                        
+                Fill this in with useful behaviors    
+                
             }
         },
 
-        "S3Bucket" : {
+        "StaticAssetS3Bucket" : {
             "Type" : "AWS::S3::Bucket",
             "DeletionPolicy" : "Retain"
         },
@@ -291,11 +134,11 @@
                         "Sid" : "EnableReadWrite",
                         "Action" : ["s3:GetObject", "s3:PutObject", "s3:PutObjectACL" ],
                         "Effect" : "Allow",
-                        "Resource" : { "Fn::Join" : ["", ["arn:aws:s3:::", {"Ref" : "S3Bucket"} , "/*"]]},
+                        "Resource" : { "Fn::Join" : ["", ["arn:aws:s3:::", {"Ref" : "StaticAssetS3Bucket"} , "/*"]]},
                         "Principal" : { "AWS": {"Fn::GetAtt" : ["InstanceRole", "Arn"]} }
                     }]
                 },
-                "Bucket" : {"Ref" : "S3Bucket"}
+                "Bucket" : {"Ref" : "StaticAssetS3Bucket"}
             }
         },
 
@@ -355,7 +198,7 @@
                                                 [
                                                     "arn:aws:s3:::",
                                                     {
-                                                        "Ref": "S3Bucket"
+                                                        "Ref": "StaticAssetS3Bucket"
                                                     }
                                                 ]
                                             ]
@@ -366,7 +209,7 @@
                                                 [
                                                     "arn:aws:s3:::",
                                                     {
-                                                        "Ref": "S3Bucket"
+                                                        "Ref": "StaticAssetS3Bucket"
                                                     },
                                                     "/*"
                                                 ]
@@ -376,7 +219,7 @@
                                             "Fn::Join": [
                                                 "",
                                                 [
-                                                    "arn:aws:s3:::hwp-devops/",
+                                                    "arn:aws:s3:::hbp-devops/",
                                                     {
                                                         "Ref": "CodeFolder"
                                                     },
@@ -391,7 +234,7 @@
                                             "Fn::Join": [
                                                 "",
                                                 [
-                                                    "arn:aws:s3:::hwp-devops/",
+                                                    "arn:aws:s3:::hbp-devops/",
                                                     {
                                                         "Ref": "CodeFolder"
                                                     },
@@ -424,29 +267,13 @@
             }
         },
 
-
-
-
-
-        "S3BucketBlank" : {
-            "Type" : "AWS::S3::Bucket",
-            "Properties" : {
-                "AccessControl" : "PublicRead",
-                "WebsiteConfiguration" : {
-                    "IndexDocument" : "index.html",
-                    "ErrorDocument" : "error.html"
-                }
-            },
-            "DeletionPolicy" : "Retain"
-        },
-
-        "ElasticLoadBalancer" : {
+        "WebElasticLoadBalancer" : {
             "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
             "Metadata" : {
                 "Comment" : "Configure the Load Balancer with a simple health check and cookie-based stickiness"
             },
             "Properties" : {
-                "Subnets" : [ "subnet-c64176b2", "subnet-32c0b11a", "subnet-28ffa96e" ],
+                "Subnets" : [ "subnet-f9676697", "subnet-ed666783", "subnet-38666756", "subnet-6f666701" ],
                 "SecurityGroups" : [{ "Ref" : "ELBSecurityGroup" }],
                 "LBCookieStickinessPolicy" : [ {
                     "PolicyName" : "CookieBasedPolicy",
@@ -565,7 +392,7 @@
 
                     "# Make environment variables for helper user data scripts\n",
                     "export TestDomain=", { "Ref" : "TestDomain" }, "\n",
-                    "export S3Bucket=", { "Ref" : "S3Bucket" }, "\n",
+                    "export StaticAssetS3Bucket=", { "Ref" : "StaticAssetS3Bucket" }, "\n",
                     "export CacheEndpointAddress=", { "Fn::GetAtt" : [ "CacheCluster", "ConfigurationEndpoint.Address" ]}, "\n",
                     "export CacheEndpointPort=", { "Fn::GetAtt" : [ "CacheCluster", "ConfigurationEndpoint.Port" ]}, "\n",
                     "export DBName=", { "Ref" : "DBName" }, "\n",
@@ -687,7 +514,7 @@
 
               "# Make environment variables for helper user data scripts\n",
               "export TestDomain=", { "Ref" : "TestDomain" }, "\n",
-              "export S3Bucket=", { "Ref" : "S3Bucket" }, "\n",
+              "export StaticAssetS3Bucket=", { "Ref" : "StaticAssetS3Bucket" }, "\n",
               "export CacheEndpointAddress=", { "Fn::GetAtt" : [ "CacheCluster", "ConfigurationEndpoint.Address" ]}, "\n",
               "export CacheEndpointPort=", { "Fn::GetAtt" : [ "CacheCluster", "ConfigurationEndpoint.Port" ]}, "\n",
               "export DBName=", { "Ref" : "DBName" }, "\n",
