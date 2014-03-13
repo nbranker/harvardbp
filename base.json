@@ -182,7 +182,7 @@
                 "MinSize" : { "Ref" : "WebServerCapacity" },
                 "MaxSize" : "6",
                 "DesiredCapacity" : { "Ref" : "WebServerCapacity" },
-                "LoadBalancerNames" : [ { "Ref" : "webElasticLoadBalancer" } ],
+                "LoadBalancerNames" : [ { "Ref" : "WebElasticLoadBalancer" } ],
                 "Tags" : [ {"Key" : "Environment", "Value" : { "Ref" : "Environment" }, "PropagateAtLaunch" : "true"},
                     {"Key" : "Name", "Value" : { "Fn::Join" : ["", [{ "Ref" : "AWS::StackName" }, " Web Server"]] }, "PropagateAtLaunch" : "true" },
                     {"Key" : "BU", "Value" : { "Ref" : "BusinessUnit" }, "PropagateAtLaunch" : "true"} ]
