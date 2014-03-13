@@ -119,15 +119,6 @@
 
     "Resources" : {
 
-        "Distribution": {
-            "Type" : "AWS::CloudFront::Distribution",
-            "Properties" : {
-                        
-                Fill this in with useful behaviors    
-                
-            }
-        },
-
         "StaticAssetS3Bucket" : {
             "Type" : "AWS::S3::Bucket",
             "DeletionPolicy" : "Retain"
@@ -151,126 +142,13 @@
             }
         },
 
-        "InstanceRole": {
-            "Type": "AWS::IAM::Role",
-            "Properties": {
-                "AssumeRolePolicyDocument": {
-                    "Statement": [
-                        {
-                            "Effect": "Allow",
-                            "Principal": {
-                                "Service": [
-                                    "ec2.amazonaws.com"
-                                ]
-                            },
-                            "Action": [
-                                "sts:AssumeRole"
-                            ]
-                        }
-                    ]
-                },
-                "Path": "/",
-                "Policies": [
-                    {
-                        "PolicyName": "EIPreassociate",
-                        "PolicyDocument": {
-                            "Statement": [
-                                {
-                                    "Action": [
-                                        "ec2:AssociateAddress",
-                                        "ec2:DescribeAddresses",
-                                        "ec2:DisassociateAddress"
-                                    ],
-                                    "Effect": "Allow",
-                                    "Resource": [
-                                        "*"
-                                    ]
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        "PolicyName": "S3access",
-                        "PolicyDocument": {
-                            "Statement": [
-                                {
-                                    "Action": [
-                                        "s3:Get*",
-                                        "s3:List*",
-                                        "s3:Put*"
-                                    ],
-                                    "Effect": "Allow",
-                                    "Resource": [
-                                        {
-                                            "Fn::Join": [
-                                                "",
-                                                [
-                                                    "arn:aws:s3:::",
-                                                    {
-                                                        "Ref": "StaticAssetS3Bucket"
-                                                    }
-                                                ]
-                                            ]
-                                        },
-                                        {
-                                            "Fn::Join": [
-                                                "",
-                                                [
-                                                    "arn:aws:s3:::",
-                                                    {
-                                                        "Ref": "StaticAssetS3Bucket"
-                                                    },
-                                                    "/*"
-                                                ]
-                                            ]
-                                        },
-                                        {
-                                            "Fn::Join": [
-                                                "",
-                                                [
-                                                    "arn:aws:s3:::hbp-devops/",
-                                                    {
-                                                        "Ref": "CodeFolder"
-                                                    },
-                                                    "/",
-                                                    {
-                                                        "Ref": "Environment"
-                                                    }
-                                                ]
-                                            ]
-                                        },
-                                        {
-                                            "Fn::Join": [
-                                                "",
-                                                [
-                                                    "arn:aws:s3:::hbp-devops/",
-                                                    {
-                                                        "Ref": "CodeFolder"
-                                                    },
-                                                    "/",
-                                                    {
-                                                        "Ref": "Environment"
-                                                    },
-                                                    "/*"
-                                                ]
-                                            ]
-                                        }
-                                    ]
-                                }
-
-                            ]
-                        }
-                    }
-                ]
-            }
-        },
         "InstanceProfile": {
             "Type": "AWS::IAM::InstanceProfile",
             "Properties": {
                 "Path": "/",
                 "Roles": [
                     {
-                        "Ref": "InstanceRole"
+                        "arn:aws:iam::964020329682:role/prod-baseline"
                     }
                 ]
             }
@@ -288,8 +166,7 @@
                 "Listeners" : [ {
                     "LoadBalancerPort" : "80",
                     "InstancePort" : "80",
-                    "Protocol" : "HTTP",
-                    "PolicyNames" : [ "CookieBasedPolicy" ]
+                    "Protocol" : "HTTP"
                 } ],
                 "HealthCheck" : {
                     "Target" : "HTTP:80/",
