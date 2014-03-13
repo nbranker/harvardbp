@@ -275,8 +275,6 @@
                     "#export DBName=", { "Ref" : "DBName" }, "\n",
                     "#export DBUsername=", { "Ref" : "DBUsername" }, "\n",
                     "#export DBPassword=", { "Ref" : "DBPassword" }, "\n",
-                    "#export DBAddress=", {"Fn::GetAtt" : ["DBInstance", "Endpoint.Address"]}, "\n",
-                    "#export DBPort=", {"Fn::GetAtt" : ["DBInstance", "Endpoint.Port"]}, "\n",
                     "#export DBPrefix=", { "Ref" : "DBPrefix" }, "\n",
                     "export CodePath=", { "Fn::Join": [
                         "",
@@ -382,9 +380,6 @@
                     "#export DBName=", { "Ref" : "DBName" }, "\n",
                     "#export DBUsername=", { "Ref" : "DBUsername" }, "\n",
                     "#export DBPassword=", { "Ref" : "DBPassword" }, "\n",
-                    "#export DBAddress=", {"Fn::GetAtt" : ["DBInstance", "Endpoint.Address"]}, "\n",
-                    "#export DBPort=", {"Fn::GetAtt" : ["DBInstance", "Endpoint.Port"]}, "\n",
-                    "#export DBPrefix=", { "Ref" : "DBPrefix" }, "\n",
                     "export CodePath=", { "Fn::Join": [
                         "",
                         [
