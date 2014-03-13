@@ -146,11 +146,11 @@
             "Type": "AWS::IAM::InstanceProfile",
             "Properties": {
                 "Path": "/",
-                "Roles": [
+                "Roles": 
                     {
                         "arn:aws:iam::964020329682:role/prod-baseline"
                     }
-                ]
+                
             }
         },
 
