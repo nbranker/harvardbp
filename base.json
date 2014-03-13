@@ -541,10 +541,7 @@
         "ElasticLoadBalancerURL" : {
             "Value" : { "Fn::Join" : ["", ["http://", { "Fn::GetAtt" : [ "ElasticLoadBalancer", "DNSName" ]}]] },
             "Description" : "ELB URL"
-        },
-        "CloudFrontURL" : {
-            "Value" : { "Fn::Join" : ["", ["http://", { "Fn::GetAtt" : [ "Distribution", "DomainName" ]}]] },
-            "Description" : "CloudFront URL"
         }
+        
     }
 }
