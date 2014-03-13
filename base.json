@@ -6,9 +6,9 @@
     "Parameters" : {
 
         "Environment" : {
-            "Description" : "Name of the environment you're provisioning ('dev', 'qa', or 'prod'",
+            "Description" : "Name of the environment you're provisioning ('dev', 'qa', or 'prod')",
             "Type" : "String",
-            "Default" : "development",
+            "Default" : "dev",
             "AllowedValues" : [ "dev", "qa", "prod" ]
         },
         
