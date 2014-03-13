@@ -15,7 +15,7 @@
         "BusinessUnit" : {
             "Description" : "Name of the business unit this is for",
             "Type" : "String",
-            "Default" : "IT",
+            "Default" : "IT"
         },
         
         "CodeFolder" : {
