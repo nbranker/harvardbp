@@ -156,7 +156,7 @@
             },
             "Properties" : {
                 "Subnets" : [ "subnet-f9676697", "subnet-ed666783", "subnet-38666756", "subnet-6f666701" ],
-                "SecurityGroups" : [{ "Ref" : "wwwELBSecurityGroup" }],
+                "SecurityGroups" : [{ "Ref" : "WebELBSecurityGroup" }],
                 "CrossZone" : "True",
                 "Listeners" : [ {
                     "LoadBalancerPort" : "80",
@@ -182,7 +182,7 @@
                 "MinSize" : { "Ref" : "WebServerCapacity" },
                 "MaxSize" : "6",
                 "DesiredCapacity" : { "Ref" : "WebServerCapacity" },
-                "LoadBalancerNames" : [ { "Ref" : "wwwElasticLoadBalancer" } ],
+                "LoadBalancerNames" : [ { "Ref" : "webElasticLoadBalancer" } ],
                 "Tags" : [ {"Key" : "Environment", "Value" : { "Ref" : "Environment" }, "PropagateAtLaunch" : "true"},
                     {"Key" : "Name", "Value" : { "Fn::Join" : ["", [{ "Ref" : "AWS::StackName" }, " Web Server"]] }, "PropagateAtLaunch" : "true" },
                     {"Key" : "BU", "Value" : { "Ref" : "BusinessUnit" }, "PropagateAtLaunch" : "true"} ]
