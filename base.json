@@ -135,7 +135,7 @@
                         "Action" : ["s3:GetObject", "s3:PutObject", "s3:PutObjectACL" ],
                         "Effect" : "Allow",
                         "Resource" : { "Fn::Join" : ["", ["arn:aws:s3:::", {"Ref" : "StaticAssetS3Bucket"} , "/*"]]},
-                        "Principal" : { "AWS": {"Fn::GetAtt" : ["InstanceRole", "Arn"]} }
+                        "Principal" : { "AWS": "arn:aws:iam::964020329682:role/prod-baseline" }
                     }]
                 },
                 "Bucket" : {"Ref" : "StaticAssetS3Bucket"}
