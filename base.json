@@ -375,7 +375,6 @@
                     "# Make environment variables for helper user data scripts\n",
                     "export TestDomain=", { "Ref" : "TestDomain" }, "\n",
                     "export StaticAssetS3Bucket=", { "Ref" : "StaticAssetS3Bucket" }, "\n",
-                    "#export DBName=", { "Ref" : "DBName" }, "\n",
                     "#export DBUsername=", { "Ref" : "DBUsername" }, "\n",
                     "#export DBPassword=", { "Ref" : "DBPassword" }, "\n",
                     "export CodePath=", { "Fn::Join": [
