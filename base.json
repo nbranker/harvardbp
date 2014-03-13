@@ -22,7 +22,6 @@
             "Description" : "Path in S3 code bucket for bootstrap code",
             "Type" : "String",
             "Default" : "",
-            "AllowedValues" : [ "harvard-edu", "news-harvard-edu-gazette", "campaign-harvard-edu" ]
         },
         
         "KeyPairName" : {
