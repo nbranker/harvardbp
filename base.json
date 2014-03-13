@@ -526,7 +526,7 @@
 
     "Outputs" : {
         "ElasticLoadBalancerURL" : {
-            "Value" : { "Fn::Join" : ["", ["http://", { "Fn::GetAtt" : [ "ElasticLoadBalancer", "DNSName" ]}]] },
+            "Value" : { "Fn::Join" : ["", ["http://", { "Fn::GetAtt" : [ "WebElasticLoadBalancer", "DNSName" ]}]] },
             "Description" : "ELB URL"
         }
         
