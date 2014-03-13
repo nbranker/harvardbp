@@ -15,7 +15,7 @@
         "BusinessUnit" : {
             "Description" : "Name of the business unit this is for",
             "Type" : "String",
-            "Default" : "development",
+            "Default" : "IT",
         },
         
         "CodeFolder" : {
@@ -313,7 +313,7 @@
                 "LoadBalancerNames" : [ { "Ref" : "wwwElasticLoadBalancer" } ],
                 "Tags" : [ {"Key" : "Environment", "Value" : { "Ref" : "Environment" }, "PropagateAtLaunch" : "true"},
                     {"Key" : "Name", "Value" : { "Fn::Join" : ["", [{ "Ref" : "AWS::StackName" }, " Web Server"]] }, "PropagateAtLaunch" : "true" },
-                    {"Key" : "BusinessUnit", "Value" : { "Ref" : "BusinessUnit" }, "PropagateAtLaunch" : "true"} ]
+                    {"Key" : "BU", "Value" : { "Ref" : "BusinessUnit" }, "PropagateAtLaunch" : "true"} ]
             }
         },
         
@@ -483,7 +483,7 @@
                 "LoadBalancerNames" : [ { "Ref" : "appElasticLoadBalancer" } ],
                 "Tags" : [ {"Key" : "Environment", "Value" : { "Ref" : "Environment" }, "PropagateAtLaunch" : "true"},
                     {"Key" : "Name", "Value" : { "Fn::Join" : ["", [{ "Ref" : "AWS::StackName" }, " App Server"]] }, "PropagateAtLaunch" : "true" },
-                    {"Key" : "BusinessUnit", "Value" : { "Ref" : "BusinessUnit" }, "PropagateAtLaunch" : "true"} ]
+                    {"Key" : "BU", "Value" : { "Ref" : "BusinessUnit" }, "PropagateAtLaunch" : "true"} ]
             }
         },
         
