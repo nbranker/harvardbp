@@ -21,7 +21,7 @@
         "CodeFolder" : {
             "Description" : "Path in S3 code bucket for bootstrap code",
             "Type" : "String",
-            "Default" : "",
+            "Default" : ""
         },
         
         "KeyPairName" : {
