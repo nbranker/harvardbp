@@ -1,0 +1,534 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+
+    "Description" : "HarvardBusiness.org CloudFormation Template",
+
+    "Parameters" : {
+
+        "Environment" : {
+            "Description" : "Name of the environment you're provisioning ('dev', 'qa', or 'prod')",
+            "Type" : "String",
+            "Default" : "dev",
+            "AllowedValues" : [ "dev", "qa", "prod" ]
+        },
+        
+        "BusinessUnit" : {
+            "Description" : "Name of the business unit this is for",
+            "Type" : "String",
+            "Default" : "IT"
+        },
+        
+        "CodeFolder" : {
+            "Description" : "Path in S3 code bucket for bootstrap code",
+            "Type" : "String",
+            "Default" : ""
+        },
+        
+        "KeyPairName" : {
+            "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the instances",
+            "Type" : "String",
+            "Default" : "hbpmaster"
+        },
+
+        "InstanceType" : {
+            "Description" : "WebServer EC2 instance type",
+            "Type" : "String",
+            "Default" : "c3.xlarge",
+            "ConstraintDescription" : "must be a valid EC2 instance type."
+        },
+        
+        "DBUsername": {
+            "Default": "admin",
+            "Description" : "The Mongo database admin account username",
+            "Type": "String",
+            "MinLength": "1",
+            "MaxLength": "16",
+            "AllowedPattern" : "[a-zA-Z][a-zA-Z0-9]*",
+            "ConstraintDescription" : "must begin with a letter and contain only alphanumeric characters."
+        },
+
+        "DBPassword": {
+            "Default": "adminPASS",
+            "NoEcho": "true",
+            "Description" : "The Mongo database admin account password",
+            "Type": "String",
+            "MinLength": "1",
+            "MaxLength": "41",
+            "AllowedPattern" : "[a-zA-Z0-9]*",
+            "ConstraintDescription" : "must contain only alphanumeric characters."
+        },
+
+        "WebServerCapacity": {
+            "Default": "2",
+            "Description" : "The initial number of WebServer instances. 2 for dev and test(default), *set to 3 for production*",
+            "Type": "Number",
+            "MinValue": "2",
+            "MaxValue": "3",
+            "ConstraintDescription" : "must be between 1 and 3 EC2 instances."
+        },
+        
+        "appServerCapacity": {
+            "Default": "2",
+            "Description" : "The initial number of AppServer instances. 2 for dev and test(default), *set to 3 for production*",
+            "Type": "Number",
+            "MinValue": "2",
+            "MaxValue": "3",
+            "ConstraintDescription" : "must be between 1 and 3 EC2 instances."
+        },
+        
+        "NATInstanceIP" : {
+            "Description" : "Internal IP of NAT Instance",
+            "Type" : "String",
+            "MinLength" : "7",
+            "MaxLength" : "15",
+            "Default" : "172.116.110.110",
+            "AllowedPattern" : "\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\b",
+            "ConstraintDescription" : "must be a valid IP"
+        },
+        
+        "TestDomain" : {
+            "Description" : "Domain Name",
+            "Type" : "String",
+            "MinLength" : "7",
+            "MaxLength" : "40",
+            "Default" : "hbsp.harvard.edu",
+            "ConstraintDescription" : "must be a valid domain name."
+        },
+        
+        "SSHLocation" : {
+            "Description" : "The IP address range that can be used to SSH to the EC2 instances",
+            "Type": "String",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "Default": "10.103.0.0/15",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+        }
+    },
+
+    "Mappings" : {
+        "AWSInstanceType2Arch" : {
+            "c3.xlarge"   : { "Arch" : "64" }
+        },
+
+        "AWSRegionArch2AMI" : {
+            "us-east-1"      : { "64" : "ami-bba18dd2", "64HVM" : "ami-e9a18d80" }
+        }
+    },
+
+    "Resources" : {
+
+        "StaticAssetS3Bucket" : {
+            "Type" : "AWS::S3::Bucket",
+            "DeletionPolicy" : "Retain"
+        },
+
+        "BucketPolicy" : {
+            "Type" : "AWS::S3::BucketPolicy",
+            "Properties" : {
+                "PolicyDocument": {
+                    "Version" : "2008-10-17",
+                    "Id" : "UploadPolicy",
+                    "Statement" : [{
+                        "Sid" : "EnableReadWrite",
+                        "Action" : ["s3:GetObject", "s3:PutObject", "s3:PutObjectACL" ],
+                        "Effect" : "Allow",
+                        "Resource" : { "Fn::Join" : ["", ["arn:aws:s3:::", {"Ref" : "StaticAssetS3Bucket"} , "/*"]]},
+                        "Principal" : { "AWS": "arn:aws:iam::964020329682:role/prod-baseline" }
+                    }]
+                },
+                "Bucket" : {"Ref" : "StaticAssetS3Bucket"}
+            }
+        },
+
+        "InstanceProfile": {
+            "Type": "AWS::IAM::InstanceProfile",
+            "Properties": {
+                "Path": "/",
+                "Roles": { [ "arn:aws:iam::964020329682:role/prod-baseline" ] }
+            }
+        },
+
+        "WebElasticLoadBalancer" : {
+            "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+            "Metadata" : {
+                "Comment" : "Configure the Load Balancer with a simple health check and cookie-based stickiness"
+            },
+            "Properties" : {
+                "Subnets" : [ "subnet-f9676697", "subnet-ed666783", "subnet-38666756", "subnet-6f666701" ],
+                "SecurityGroups" : [{ "Ref" : "WebELBSecurityGroup" }],
+                "CrossZone" : "True",
+                "Listeners" : [ {
+                    "LoadBalancerPort" : "80",
+                    "InstancePort" : "80",
+                    "Protocol" : "HTTP"
+                } ],
+                "HealthCheck" : {
+                    "Target" : "HTTP:80/",
+                    "HealthyThreshold" : "2",
+                    "UnhealthyThreshold" : "6",
+                    "Interval" : "10",
+                    "Timeout" : "5"
+                }
+            }
+        },
+
+        "WebServerGroup" : {
+            "Type" : "AWS::AutoScaling::AutoScalingGroup",
+            "Properties" : {
+                "AvailabilityZones" : [ "us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d" ],
+                "VPCZoneIdentifier" : [ "subnet-f9676697", "subnet-ed666783", "subnet-38666756", "subnet-6f666701" ],
+                "LaunchConfigurationName" : { "Ref" : "WebLaunchConfig" },
+                "MinSize" : { "Ref" : "WebServerCapacity" },
+                "MaxSize" : "6",
+                "DesiredCapacity" : { "Ref" : "WebServerCapacity" },
+                "LoadBalancerNames" : [ { "Ref" : "WebElasticLoadBalancer" } ],
+                "Tags" : [ {"Key" : "Environment", "Value" : { "Ref" : "Environment" }, "PropagateAtLaunch" : "true"},
+                    {"Key" : "Name", "Value" : { "Fn::Join" : ["", [{ "Ref" : "AWS::StackName" }, " Web Server"]] }, "PropagateAtLaunch" : "true" },
+                    {"Key" : "BU", "Value" : { "Ref" : "BusinessUnit" }, "PropagateAtLaunch" : "true"} ]
+            }
+        },
+        
+        "WebServerScaleUpPolicy" : {
+            "Type" : "AWS::AutoScaling::ScalingPolicy",
+            "Properties" : {
+                "AdjustmentType" : "ChangeInCapacity",
+                "AutoScalingGroupName" : { "Ref" : "WebServerGroup" },
+                "Cooldown" : "180",
+                "ScalingAdjustment" : "2"
+            }
+        },
+        
+        "WebServerScaleDownPolicy" : {
+            "Type" : "AWS::AutoScaling::ScalingPolicy",
+            "Properties" : {
+                "AdjustmentType" : "ChangeInCapacity",
+                "AutoScalingGroupName" : { "Ref" : "WebServerGroup" },
+                "Cooldown" : "600",
+                "ScalingAdjustment" : "-1"
+            }
+        },
+
+        "CPUAlarmHigh": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Properties": {
+                "AlarmDescription": "Scale-up if CPU > 90% for 10 minutes",
+                "MetricName": "CPUUtilization",
+                "Namespace": "AWS/EC2",
+                "Statistic": "Average",
+                "Period": "300",
+                "EvaluationPeriods": "2",
+                "Threshold": "90",
+                "AlarmActions": [ { "Ref": "WebServerScaleUpPolicy" } ],
+                "Dimensions": [
+                    {
+                        "Name": "AutoScalingGroupName",
+                        "Value": { "Ref": "WebServerGroup" }
+                    }
+                ],
+                "ComparisonOperator": "GreaterThanThreshold"
+            }
+        },
+        "CPUAlarmLow": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Properties": {
+                "AlarmDescription": "Scale-down if CPU < 10% for 10 minutes",
+                "MetricName": "CPUUtilization",
+                "Namespace": "AWS/EC2",
+                "Statistic": "Average",
+                "Period": "300",
+                "EvaluationPeriods": "2",
+                "Threshold": "10",
+                "AlarmActions": [ { "Ref": "WebServerScaleDownPolicy" } ],
+                "Dimensions": [
+                    {
+                        "Name": "AutoScalingGroupName",
+                        "Value": { "Ref": "WebServerGroup" }
+                    }
+                ],
+                "ComparisonOperator": "LessThanThreshold"
+            }
+        },
+        "WebLaunchConfig": {
+            "Type" : "AWS::AutoScaling::LaunchConfiguration",
+            "Properties": {
+                "AssociatePublicIpAddress" : "true",
+                "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
+                    { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
+                "InstanceType"   : { "Ref" : "InstanceType" },
+                "IamInstanceProfile" : { "Ref" : "InstanceProfile" },
+                "SecurityGroups" : [ {"Ref" : "WebServerSecurityGroup" } ],
+                "KeyName"        : { "Ref" : "KeyPairName" },
+                "UserData" : { "Fn::Base64" : { "Fn::Join" : [ "", [
+                    "#!/bin/bash -v\n",
+
+                    "# Helper function\n",
+                    "function error_exit\n",
+                    "{\n",
+                    "  /opt/aws/bin/cfn-signal -e 1 -r \"$1\" '", { "Ref" : "WebWaitHandle" }, "'\n",
+                    "  exit 1\n",
+                    "}\n",
+
+                    "# Make environment variables for helper user data scripts\n",
+                    "export TestDomain=", { "Ref" : "TestDomain" }, "\n",
+                    "export StaticAssetS3Bucket=", { "Ref" : "StaticAssetS3Bucket" }, "\n",
+                    "#export DBUsername=", { "Ref" : "DBUsername" }, "\n",
+                    "#export DBPassword=", { "Ref" : "DBPassword" }, "\n",
+                    "export CodePath=", { "Fn::Join": [
+                        "",
+                        [
+                            "hbp-devops/",
+                            {
+                                "Ref": "CodeFolder"
+                            },
+                            "/",
+                            {
+                                "Ref": "Environment"
+                            }
+                        ]
+                    ]
+                    }, "\n",
+                    "mkdir -p /opt/aws/bootstrap\n",
+                    "aws s3 cp s3://$CodePath/devops/cloudformation-helper-scripts/runbook.sh /opt/aws/bootstrap/runbook.sh --region us-east-1\n",
+                    "# The following line is so that crontab is created on all webservers here, so that subsequent additions to crontab in helper.sh work properly\n",
+                    "(crontab -l ; echo \"#\") | crontab -\n",
+                    "chmod 700 /opt/aws/bootstrap/runbook.sh\n",
+                    "/opt/aws/bootstrap/runbook.sh\n"
+
+                ]]}}
+            }
+        },
+
+        "WebWaitHandle" : {
+            "Type" : "AWS::CloudFormation::WaitConditionHandle"
+        },
+
+        "WebWaitCondition" : {
+            "Type" : "AWS::CloudFormation::WaitCondition",
+            "DependsOn" : "WebServerGroup",
+            "Properties" : {
+                "Count" : "0",
+                "Handle" : {"Ref" : "WebWaitHandle"},
+                "Timeout" : "600"
+            }
+        },
+        
+        "appElasticLoadBalancer" : {
+            "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+            "Metadata" : {
+                "Comment" : "Configure the Load Balancer with a simple health check and cookie-based stickiness"
+            },
+            "Properties" : {
+                "Subnets" : [ "subnet-1bded677", "subnet-28a28843", "subnet-a2f4e2c9", "subnet-ae3639c5" ],
+                "SecurityGroups" : [{ "Ref" : "appELBSecurityGroup" }],
+                "CrossZone" : "True",
+                "Listeners" : [ {
+                    "LoadBalancerPort" : "8080",
+                    "InstancePort" : "8080",
+                    "Protocol" : "HTTP"
+                } ],
+                "HealthCheck" : {
+                    "Target" : "HTTP:80/",
+                    "HealthyThreshold" : "2",
+                    "UnhealthyThreshold" : "6",
+                    "Interval" : "10",
+                    "Timeout" : "5"
+                }
+            }
+        },
+
+        "appServerGroup" : {
+            "Type" : "AWS::AutoScaling::AutoScalingGroup",
+            "Properties" : {
+                "AvailabilityZones" : [ "us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d" ],
+                "VPCZoneIdentifier" : [ "subnet-1bded677", "subnet-28a28843", "subnet-a2f4e2c9", "subnet-ae3639c5" ],
+                "LaunchConfigurationName" : { "Ref" : "appLaunchConfig" },
+                "MinSize" : { "Ref" : "appServerCapacity" },
+                "MaxSize" : { "Ref" : "appServerCapacity" },
+                "DesiredCapacity" : { "Ref" : "appServerCapacity" },
+                "LoadBalancerNames" : [ { "Ref" : "appElasticLoadBalancer" } ],
+                "Tags" : [ {"Key" : "Environment", "Value" : { "Ref" : "Environment" }, "PropagateAtLaunch" : "true"},
+                    {"Key" : "Name", "Value" : { "Fn::Join" : ["", [{ "Ref" : "AWS::StackName" }, " App Server"]] }, "PropagateAtLaunch" : "true" },
+                    {"Key" : "BU", "Value" : { "Ref" : "BusinessUnit" }, "PropagateAtLaunch" : "true"} ]
+            }
+        },
+        
+        "appLaunchConfig": {
+            "Type" : "AWS::AutoScaling::LaunchConfiguration",
+            "Properties": {
+                "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
+                    { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
+                "InstanceType"   : { "Ref" : "InstanceType" },
+                "IamInstanceProfile" : { "Ref" : "InstanceProfile" },
+                "SecurityGroups" : [ {"Ref" : "appServerSecurityGroup" } ],
+                "KeyName"        : { "Ref" : "KeyPairName" },
+                "UserData" : { "Fn::Base64" : { "Fn::Join" : [ "", [
+                    "#!/bin/bash -v\n",
+
+                    "# Helper function\n",
+                    "function error_exit\n",
+                    "{\n",
+                    "  /opt/aws/bin/cfn-signal -e 1 -r \"$1\" '", { "Ref" : "appWaitHandle" }, "'\n",
+                    "  exit 1\n",
+                    "}\n",
+
+                    "# Make environment variables for helper user data scripts\n",
+                    "export TestDomain=", { "Ref" : "TestDomain" }, "\n",
+                    "export StaticAssetS3Bucket=", { "Ref" : "StaticAssetS3Bucket" }, "\n",
+                    "#export DBUsername=", { "Ref" : "DBUsername" }, "\n",
+                    "#export DBPassword=", { "Ref" : "DBPassword" }, "\n",
+                    "export CodePath=", { "Fn::Join": [
+                        "",
+                        [
+                            "hbp-devops/",
+                            {
+                                "Ref": "CodeFolder"
+                            },
+                            "/",
+                            {
+                                "Ref": "Environment"
+                            }
+                        ]
+                    ]
+                    }, "\n",
+                    "mkdir -p /opt/aws/bootstrap\n",
+                    "aws s3 cp s3://$CodePath/devops/cloudformation-helper-scripts/runbook.sh /opt/aws/bootstrap/runbook.sh --region us-east-1\n",
+                    "# The following line is so that crontab is created on all webservers here, so that subsequent additions to crontab in helper.sh work properly\n",
+                    "(crontab -l ; echo \"#\") | crontab -\n",
+                    "chmod 700 /opt/aws/bootstrap/runbook.sh\n",
+                    "/opt/aws/bootstrap/runbook.sh\n"
+
+                ]]}}
+            }
+        },
+
+        "appWaitHandle" : {
+            "Type" : "AWS::CloudFormation::WaitConditionHandle"
+        },
+
+        "appWaitCondition" : {
+            "Type" : "AWS::CloudFormation::WaitCondition",
+            "DependsOn" : "appServerGroup",
+            "Properties" : {
+                "Count" : "0",
+                "Handle" : {"Ref" : "appWaitHandle"},
+                "Timeout" : "600"
+            }
+        },
+        
+        "WebELBSecurityGroup" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "VpcId" : "vpc-67a2880c",
+                "GroupDescription": "Web Tier: Enable inbound access via 80 and 443 to the ELB",
+                "SecurityGroupIngress": [
+                    {"IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "0.0.0.0/0"},
+                    {"IpProtocol" : "tcp", "FromPort" : "443", "ToPort" : "443", "CidrIp" : "0.0.0.0/0"}
+                ]
+            }
+        },
+        
+        "WebServerSecurityGroup" : {
+          "Type" : "AWS::EC2::SecurityGroup",
+          "Properties" : {
+          "VpcId" : "vpc-67a2880c",
+          "GroupDescription" : "Web Tier: Enable HTTP access via port 443, locked down to requests from the load balancer only and SSH access"
+        
+        }
+      },
+      
+      "WebServerSecurityGroupIngressELB": {
+        "Type": "AWS::EC2::SecurityGroupIngress",
+        "Properties":  
+        {
+            "GroupId": { "Ref": "WebServerSecurityGroup" },
+            "IpProtocol" : "tcp",
+            "FromPort" :  "80",
+            "ToPort" :  "80",
+            "SourceSecurityGroupId" : { "Ref" : "WebELBSecurityGroup" }
+        }
+      },
+      
+      "WebServerSSLSecurityGroupIngressELB": {
+        "Type": "AWS::EC2::SecurityGroupIngress",
+        "Properties":  
+        {
+            "GroupId": { "Ref": "WebServerSecurityGroup" },
+            "IpProtocol" : "tcp",
+            "FromPort" :  "443",
+            "ToPort" :  "443",
+            "SourceSecurityGroupId" : { "Ref" : "WebELBSecurityGroup" }
+        }
+      },
+      
+      "WebServerSecurityGroupIngressSSH": {
+        "Type": "AWS::EC2::SecurityGroupIngress",
+        "Properties": 
+        {
+            "GroupId": { "Ref": "WebServerSecurityGroup" },
+            "IpProtocol" : "tcp",
+            "FromPort" :  "22",
+            "ToPort" :  "22",
+            "CidrIp" : { "Ref" : "SSHLocation" }
+        }
+      },
+      
+      "appELBSecurityGroup" : {
+            "Type" : "AWS::EC2::SecurityGroup",
+            "Properties" : {
+                "VpcId" : "vpc-67a2880c",
+                "GroupDescription": "App Tier: Enable inbound access via 80 and 443 to the ELB",
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol" : "tcp",
+                        "FromPort" : "8080", 
+                        "ToPort" : "8080",
+                        "SourceSecurityGroupId" : { "Ref" : "appServerSecurityGroup" }
+                    }
+                ]
+            }
+        },
+        
+        "appServerSecurityGroup" : {
+          "Type" : "AWS::EC2::SecurityGroup",
+          "Properties" : {
+          "VpcId" : "vpc-67a2880c",
+          "GroupDescription" : "Enable HTTP access via port 8080, locked down to requests from the load balancer only and SSH access"
+        
+        }
+      },
+      
+      "appServerSecurityGroupIngressELB": {
+        "Type": "AWS::EC2::SecurityGroupIngress",
+        "Properties":  
+        {
+            "GroupId": { "Ref": "appServerSecurityGroup" },
+            "IpProtocol" : "tcp",
+            "FromPort" :  "8080",
+            "ToPort" :  "8080",
+            "SourceSecurityGroupId" : { "Ref" : "appELBSecurityGroup" }
+        }
+      },
+      
+      "appServerSecurityGroupIngressSSH": {
+        "Type": "AWS::EC2::SecurityGroupIngress",
+        "Properties": 
+        {
+            "GroupId": { "Ref": "appServerSecurityGroup" },
+            "IpProtocol" : "tcp",
+            "FromPort" :  "22",
+            "ToPort" :  "22",
+            "CidrIp" : { "Ref" : "SSHLocation" }
+        }
+      }
+      
+    },
+
+    "Outputs" : {
+        "ElasticLoadBalancerURL" : {
+            "Value" : { "Fn::Join" : ["", ["http://", { "Fn::GetAtt" : [ "WebElasticLoadBalancer", "DNSName" ]}]] },
+            "Description" : "ELB URL"
+        }
+        
+    }
+}
